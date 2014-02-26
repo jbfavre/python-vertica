@@ -4,6 +4,8 @@ README.md
 requirements.txt
 setup.py
 vertica_python/__init__.py
+vertica_python/datatypes.py
+vertica_python/errors.py
 vertica_python.egg-info/PKG-INFO
 vertica_python.egg-info/SOURCES.txt
 vertica_python.egg-info/dependency_links.txt
@@ -12,9 +14,7 @@ vertica_python.egg-info/top_level.txt
 vertica_python/vertica/__init__.py
 vertica_python/vertica/column.py
 vertica_python/vertica/connection.py
-vertica_python/vertica/error.py
-vertica_python/vertica/query.py
-vertica_python/vertica/result.py
+vertica_python/vertica/cursor.py
 vertica_python/vertica/messages/__init__.py
 vertica_python/vertica/messages/message.py
 vertica_python/vertica/messages/backend_messages/__init__.py
