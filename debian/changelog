@@ -1,3 +1,9 @@
+vertica (0.2.0-1~bbc74+1) stable; urgency=medium
+
+  * Imported Upstream version 0.2.0
+
+ -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Wed, 26 Feb 2014 10:43:51 +0100
+
 vertica (0.1.9-1~bbc72+1) stable; urgency=low
 
   * source package automatically created by stdeb 0.6.0+git
