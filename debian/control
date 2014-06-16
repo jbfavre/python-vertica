@@ -4,9 +4,21 @@ Section: python
 Priority: optional
 Build-Depends: python-setuptools (>= 0.6b3), python-all (>= 2.6.6-3), python-setuptools, debhelper (>= 7.4.3)
 Standards-Version: 3.9.5
+Description: A native Python client for the Vertica database.
+ HP Vertica is a commercial column-oriented database.
+ .
+ This package provides all the source, examples and documentation you need
+ to easily connect to and interact with Vertica.
+ .
+ This is the Python 2 version of the package.
 
 Package: python-vertica
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}
 Description: A native Python client for the Vertica database.
-
+ HP Vertica is a commercial column-oriented database.
+ .
+ This package provides all the source, examples and documentation you need
+ to easily connect to and interact with Vertica.
+ .
+ This is the Python 2 version of the package.
