@@ -34,7 +34,7 @@ class Cursor(object):
     def callproc(procname, parameters=None):
         raise errors.NotSupportedError('Cursor.callproc() is not implemented')
 
-    def close():
+    def close(self):
         self._closed = True
 
     def execute(self, operation, parameters=None):
@@ -45,9 +45,15 @@ class Cursor(object):
         if parameters:
             # optional requirement
             from psycopg2.extensions import adapt
-            for key in parameters:
-                v = adapt(parameters[key]).getquoted()
-                operation = operation.replace(':' + key, v)
+
+            if isinstance(parameters, dict):
+                for key in parameters:
+                    v = adapt(parameters[key]).getquoted()
+                    operation = operation.replace(':' + key, v)
+            elif isinstance(parameters, tuple):
+                operation = operation % tuple(adapt(p).getquoted() for p in parameters)
+            else:
+                raise errors.Error("Argument 'parameters' must be dict or tuple")
 
         self.rowcount = 0
         self.buffered_rows = collections.deque()
@@ -101,17 +107,26 @@ class Cursor(object):
     #
     # Non dbApi methods
     #
+    # todo: input stream
+    def copy(self, sql, data):
 
-    def copy(self, sql, source=None, handler=None):
-        pass
-        #job = Query(self, sql, dict(row_style=self.row_style))
-        #if handler is not None:
-        #    job.copy_handler = handler
-        #elif source is not None and os.path.isfile(str(source)):
-        #    job.copy_handler = lambda data: self.file_copy_handler(source, data)
-        #elif hasattr(source, 'read'):
-        #    job.copy_handler = lambda data: self.io_copy_handler(source, data)
-        #return self.run_with_job_lock(job)
+        if self.closed():
+            raise errors.Error('Cursor is closed')
+
+        self.connection.write(messages.Query(sql))
+
+        while True:
+            message = self.connection.read_message()
+            self._process_message(message=message)
+            if isinstance(message, messages.ReadyForQuery):
+                break
+            elif isinstance(message, messages.CopyInResponse):
+                #write stuff
+                self.connection.write(messages.CopyData(data))
+                self.connection.write(messages.CopyDone())
+
+        if self.error is not None:
+            raise self.error
 
     #
     # Internal
@@ -129,16 +144,11 @@ class Cursor(object):
 
 
     def fetch_rows(self):
-        counter = 0
         while True:
             message = self.connection.read_message()
             self._process_message(message=message)
             if isinstance(message, messages.ReadyForQuery):
                 break
-            # just in case for now...
-            if counter > 10000000:
-                raise errors.Error('Nope')
-            counter = counter + 1
 
 
     def _process_message(self, message):
@@ -148,8 +158,6 @@ class Cursor(object):
         elif isinstance(message, messages.EmptyQueryResponse):
             self.error = errors.EmptyQueryError("A SQL string was expected, but the given string was blank or only contained SQL comments.")
         elif isinstance(message, messages.CopyInResponse):
-            # TODO
-            #self._handle_copy_from_stdin()
             pass
         elif isinstance(message, messages.RowDescription):
             self.set_description(message)
