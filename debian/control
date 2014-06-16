@@ -8,7 +8,7 @@ X-Python-Version: >= 2.6
 
 Package: python-vertica
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}
+Depends: ${python:Depends}, ${misc:Depends}
 Description: native Python client for the Vertica database.
  HP Vertica is a commercial column-oriented database.
  .
