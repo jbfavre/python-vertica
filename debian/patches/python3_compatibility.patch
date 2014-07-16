@@ -2,7 +2,6 @@ Description: Python3 syntax compatibility
  Some syntax fixes with print() function and Exceptions
  to make module python3 runnable.
 Author: Jean Baptiste Favre <debian@jbfavre.org>
-Origin: other
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: python-vertica/vertica_python/vertica/connection.py
