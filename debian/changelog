@@ -1,3 +1,20 @@
+vertica (0.2.3-1~bbc69+1) stable; urgency=medium
+
+  * Add watch file support
+  * Fix build dependencies
+  * Update standard version
+  * Add copyright file
+  * Switch build-system to pybuild
+  * Add package description
+  * Fix package description
+  * Add X-Python field in control file
+  * Clean control file
+  * Update Depends macro in control file
+  * Fix Maintainer in control file
+  * Imported Upstream version 0.2.3
+
+ -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Fri, 08 Aug 2014 14:40:21 +0200
+
 vertica (0.2.0-1~bbc69+1) stable; urgency=medium
 
   * Imported Upstream version 0.2.0
