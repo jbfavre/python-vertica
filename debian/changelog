@@ -1,3 +1,9 @@
+vertica (0.2.3-1~bbc76+1) stable; urgency=medium
+
+  * Backport of 0.2.3 for Wheezy by BlaBlaCar
+
+ -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Fri, 08 Aug 2014 14:57:21 +0200
+
 vertica (0.2.3-1~bbc75+1) stable; urgency=medium
 
   * Add watch file support
