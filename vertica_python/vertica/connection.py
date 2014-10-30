@@ -37,6 +37,15 @@ class Connection(object):
         self.boot_connection()
         #self.debug = True
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if type:
+            self.rollback()
+        else:
+            self.commit()
+
 
     #
     # To support vertica_python 0.1.9 interface
@@ -210,6 +219,9 @@ class Connection(object):
         return results
 
     def startup_connection(self):
+        if not 'database' in self.options:
+            self.options['database'] = None
+
         self.write(messages.Startup(self.options['user'], self.options['database']))
         message = None
         while True:
