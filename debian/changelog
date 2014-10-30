@@ -1,3 +1,9 @@
+vertica (0.3.0-1~bbc69+1) stable; urgency=medium
+
+  * Imported Upstream version 0.3.0
+
+ --  Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Thu, 30 Oct 2014 09:08:17 +0100
+
 vertica (0.2.3-1~bbc69+1) stable; urgency=medium
 
   * Add watch file support
