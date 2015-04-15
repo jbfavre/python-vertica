@@ -1,3 +1,10 @@
+vertica (0.3.6-1_bbc78+1) stable; urgency=medium
+
+  * Imported Upstream version 0.3.6
+  * Update copyright & watch files
+
+ -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Wed, 15 Apr 2015 13:57:55 +0200
+
 vertica (0.3.1-1~bbc77+1) stable; urgency=medium
 
   * Imported Upstream version 0.3.1
