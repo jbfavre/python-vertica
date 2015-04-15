@@ -1,4 +1,4 @@
-vertica (0.3.6-1_bbc78+1) stable; urgency=medium
+vertica (0.3.6-1~bbc78+1) stable; urgency=medium
 
   * Imported Upstream version 0.3.6
   * Update copyright & watch files
