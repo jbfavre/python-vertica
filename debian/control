@@ -1,18 +1,30 @@
 Source: python-vertica
-Maintainer: Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>
-Section: python
+Maintainer: Jean Baptiste Favre <debian@jbfavre.org>
+Section: contrib/python
 Priority: optional
-Build-Depends: python-setuptools (>= 0.6b3), python-all (>= 2.6.6-3), python-setuptools, debhelper (>= 7.4.3)
+Build-Depends: python-setuptools (>= 0.6b3), python-all (>= 2.6.6-3), python-setuptools, debhelper (>= 8), dh-python, python3-all, python3-setuptools
 Standards-Version: 3.9.6
 X-Python-Version: >= 2.6
+X-Python3-Version: >= 3.2
 
 Package: python-vertica
 Architecture: all
 Depends: ${python:Depends}, ${misc:Depends}
-Description: native Python client for the Vertica database.
+Description: native Python client for the Vertica database
  HP Vertica is a commercial column-oriented database.
  .
  This package provides all the source, examples and documentation you need
  to easily connect to and interact with Vertica.
  .
  This is the Python 2 version of the package.
+
+Package: python3-vertica
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}
+Description: native Python client for the Vertica database (Python 3)
+ HP Vertica is a commercial column-oriented database.
+ .
+ This package provides all the source, examples and documentation you need
+ to easily connect to and interact with Vertica.
+ .
+ This is the Python 3 version of the package.
