@@ -1,8 +1,9 @@
-Files: *
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Uber Technologies, Inc.
 Upstream-Contact: alex.kim@uber.com
 Source: https://github.com/uber/vertica-python
+
+Files: *
 Copyright: Copyright (c) 2013 Uber Technologies, Inc.
 License: Expat
 
