@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-import os
+import logging
 import select
 import socket
 import ssl
@@ -12,43 +12,42 @@ import vertica_python.vertica.messages as messages
 
 from vertica_python.vertica.messages.message import BackendMessage
 
-from vertica_python.vertica.cursor  import Cursor
+from vertica_python.vertica.cursor import Cursor
+from vertica_python.errors import SSLNotSupported
 
-# To support vertica_python 0.1.9 interface
-class OldResults(object):
-    def __init__(self, rows):
-        self.rows = rows
+logger = logging.getLogger('vertica')
+
 
 class Connection(object):
-
-    def __init__(self, options={}):
+    def __init__(self, options=None):
         self.reset_values()
 
-        self.options = {}
+        options = options or {}
+        self.options = dict(
+            (key, value) for key, value in options.iteritems() if value is not None
+        )
 
-        for key, value in options.iteritems():
-            if value is not None:
-                self.options[key] = value
-
-        self.options['port'] = 5433 if self.options.get('port') is None else self.options['port']
-        self.options['read_timeout'] = 600 if self.options.get('read_timeout') is None else self.options['read_timeout']
-
-        self.row_style = self.options.get('row_style') if self.options.get('row_style') is not None else 'hash'
+        # we only support one cursor per connection
+        self._cursor = Cursor(self, None)
+        self.options.setdefault('port', 5433)
+        self.options.setdefault('read_timeout', 600)
         self.boot_connection()
-        #self.debug = True
 
+    def __enter__(self):
+        return self
 
-    #
-    # To support vertica_python 0.1.9 interface
-    #
-    def query(self, query, handler=None):
-        if handler:
-            cur = Cursor(self, 'dict', handler)
-            cur.execute(query)
-        else:
-            cur = Cursor(self, 'dict')
-            cur.execute(query)
-            return OldResults(cur.fetchall())
+    def __exit__(self, type, value, traceback):
+        try:
+            # if there's no outstanding transaction, we can simply close the connection
+            if self.transaction_status in (None, 'in_transaction'):
+                return
+
+            if type is not None:
+                self.rollback()
+            else:
+                self.commit()
+        finally:
+            self.close()
 
     #
     # dbApi methods
@@ -62,29 +61,32 @@ class Connection(object):
 
     def commit(self):
         if self.closed():
-            raise errors.Error('Connection is closed')
+            raise errors.ConnectionError('Connection is closed')
 
         cur = self.cursor()
-        cur.execute('commit')
+        cur.execute('COMMIT;')
 
     def rollback(self):
         if self.closed():
-            raise errors.Error('Connection is closed')
+            raise errors.ConnectionError('Connection is closed')
 
         cur = self.cursor()
-        cur.execute('rollback')
+        cur.execute('ROLLBACK;')
 
-    def cursor(self, cursor_type=None, row_handler=None):
+    def cursor(self, cursor_type=None):
         if self.closed():
-            raise errors.Error('Connection is closed')
-        return Cursor(self, cursor_type=cursor_type, row_handler=row_handler)
+            raise errors.ConnectionError('Connection is closed')
 
+        if self._cursor.closed():
+            self._cursor._closed = False
 
+        # let user change type if they want?
+        self._cursor.cursor_type = cursor_type
+        return self._cursor
 
     #
-    # Internal 
+    # Internal
     #
-
     def reset_values(self):
         self.parameters = {}
         self.session_id = None
@@ -97,7 +99,7 @@ class Connection(object):
         if self.socket is not None:
             return self.socket
 
-        if self.options.get('ssl', False) is True:
+        if self.options.get('ssl'):
             # SSL
             raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             raw_socket.connect((self.options['host'], self.options['port']))
@@ -120,7 +122,9 @@ class Connection(object):
         return self.socket is not None and isinstance(ssl.SSLSocket, self.socket)
 
     def opened(self):
-        return self.socket is not None and self.backend_pid is not None and self.transaction_status is not None
+        return (self.socket is not None
+                and self.backend_pid is not None
+                and self.transaction_status is not None)
 
     def closed(self):
         return not self.opened()
@@ -130,8 +134,7 @@ class Connection(object):
         if hasattr(message, 'to_bytes') is False or callable(getattr(message, 'to_bytes')) is False:
             raise TypeError("invalid message: ({0})".format(message))
 
-        if getattr(self, 'debug', False):
-            print "=> {0}".format(message)
+        logger.debug('=> %s', message)
         try:
             self._socket().sendall(message.to_bytes())
         except Exception, e:
@@ -140,8 +143,8 @@ class Connection(object):
 
     def close_socket(self):
         try:
-            self._socket().close()
-            self.socket = None
+            if self.socket is not None:
+                self._socket().close()
         finally:
             self.reset_values()
 
@@ -161,14 +164,17 @@ class Connection(object):
                 size = unpack('!I', self.read_bytes(4))[0]
 
                 if size < 4:
-                    raise errors.MessageError("Bad message size: {0}".format(size))
+                    raise errors.MessageError(
+                        "Bad message size: {0}".format(size)
+                    )
                 message = BackendMessage.factory(type, self.read_bytes(size - 4))
-                if getattr(self, 'debug', False):
-                    print "<= {0}".format(message)
+                logger.debug('<= %s', message)
                 return message
             else:
                 self.close()
                 raise errors.TimedOutError("Connection timed out")
+        except errors.TimedOutError:
+            raise
         except Exception as e:
             self.close_socket()
             raise errors.ConnectionError(e.message)
@@ -186,39 +192,53 @@ class Connection(object):
             self.parameters[message.name] = message.value
         elif isinstance(message, messages.ReadyForQuery):
             self.transaction_status = message.transaction_status
+        elif isinstance(message, messages.CommandComplete):
+            pass
         else:
             raise errors.MessageError("Unhandled message: {0}".format(message))
 
+        # set last message
+        self._cursor._message = message
+
     def __str__(self):
-        safe_options = {}
-        for key, value in self.options.iteritems():
-            if key != 'password':
-                safe_options[key] = value
-        s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(id(self), self.parameters, self.backend_pid)
-        s2 = "backend_key={0}, transaction_status={1}, socket={2}, options={3}, row_style={4}>".format(self.backend_key, self.transaction_status, self.socket, safe_options, self.row_style)
-        return s1+s2
-
-
+        safe_options = dict(
+            (key, value) for key, value in self.options.iteritems() if key != 'password'
+        )
+        s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
+            id(self), self.parameters, self.backend_pid
+        )
+        s2 = "backend_key={0}, transaction_status={1}, socket={2}, options={3}>".format(
+            self.backend_key, self.transaction_status, self.socket,
+            safe_options,
+        )
+        return s1 + s2
 
     def read_bytes(self, n):
         results = ''
         while len(results) < n:
-            bytes = self._socket().recv(n-len(results))
-            if bytes is None or len(bytes) == 0:
+            bytes = self._socket().recv(n - len(results))
+            if not bytes:
                 raise errors.ConnectionError("Connection closed by Vertica")
             results = results + bytes
         return results
 
     def startup_connection(self):
-        self.write(messages.Startup(self.options['user'], self.options['database']))
-        message = None
+        # This doesn't handle Unicode usernames or passwords
+        user = self.options['user'].encode('ascii')
+        database = self.options['database'].encode('ascii')
+        password = self.options['password'].encode('ascii')
+
+        self.write(messages.Startup(user, database))
+
         while True:
             message = self.read_message()
 
             if isinstance(message, messages.Authentication):
                 # Password message isn't right format ("incomplete message from client")
                 if message.code != messages.Authentication.OK:
-                    self.write(messages.Password(self.options['password'], message.code, dict(user=self.options['user'], salt=getattr(message, 'salt', None))))
+                    self.write(messages.Password(password, message.code, {
+                        'user': user, 'salt': getattr(message, 'salt', None)
+                    }))
             else:
                 self.process_message(message)
 
@@ -230,7 +250,6 @@ class Connection(object):
             self.query("SET SEARCH_PATH TO {0}".format(self.options['search_path']))
         if self.options.get('role') is not None:
             self.query("SET ROLE {0}".format(self.options['role']))
-        #if self.options.get('interruptable', False) is True:
-        #    self.session_id = self.query("SELECT session_id FROM v_monitor.current_session").the_value()
 
-
+# if self.options.get('interruptable'):
+#            self.session_id = self.query("SELECT session_id FROM v_monitor.current_session").the_value()

@@ -1,6 +1,11 @@
 from __future__ import absolute_import
 
-import crypt
+import os
+
+if os.name == 'nt':
+    from . import crypt_windows as crypt
+else:
+    import crypt
 import hashlib
 
 from struct import pack
@@ -8,11 +13,12 @@ from struct import pack
 from vertica_python.vertica.messages.message import FrontendMessage
 from vertica_python.vertica.messages.backend_messages.authentication import Authentication
 
+
 class Password(FrontendMessage):
 
-    def __init__(self, password, auth_method=None, options={}):
+    def __init__(self, password, auth_method=None, options=None):
         self.password = password
-        self.options = options
+        self.options = options or {}
         if auth_method is not None:
             self.auth_method = auth_method
         else:
@@ -25,8 +31,13 @@ class Password(FrontendMessage):
         elif self.auth_method == Authentication.CRYPT_PASSWORD:
             return crypt.crypt(self.password, self.options['salt'])
         elif self.auth_method == Authentication.MD5_PASSWORD:
-            self.password = hashlib.md5().update(self.password + self.options['user']).hexdigest()
-            self.password = hashlib.md5().update(self.password + self.options['salt']).hexdigest()
+            m = hashlib.md5()
+            m.update(self.password + self.options['user'])
+            self.password = m.hexdigest()
+
+            m = hashlib.md5()
+            m.update(self.password + self.options['salt'])
+            self.password = m.hexdigest()
             return 'md5' + self.password
         else:
             raise ValueError("unsupported authentication method: {0}".format(self.auth_method))

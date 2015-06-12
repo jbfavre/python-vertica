@@ -1,23 +1,22 @@
 from __future__ import absolute_import
 
-import collections
+import re
+import logging
 
 import vertica_python.errors as errors
 
 import vertica_python.vertica.messages as messages
 from vertica_python.vertica.column import Column
 
+logger = logging.getLogger('vertica')
 
 class Cursor(object):
-
-    def __init__(self, connection, cursor_type=None, row_handler=None):
+    def __init__(self, connection, cursor_type=None):
         self.connection = connection
         self.cursor_type = cursor_type
-        self.row_handler = row_handler
         self._closed = False
+        self._message = None
 
-        self.last_execution = None
-        self.buffered_rows = collections.deque()
         self.error = None
 
         #
@@ -27,56 +26,97 @@ class Cursor(object):
         self.rowcount = -1
         self.arraysize = 1
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
     #
     # dbApi methods
     #
 
-    def callproc(procname, parameters=None):
+    def callproc(self, procname, parameters=None):
         raise errors.NotSupportedError('Cursor.callproc() is not implemented')
 
     def close(self):
         self._closed = True
 
     def execute(self, operation, parameters=None):
-
         if self.closed():
             raise errors.Error('Cursor is closed')
 
+        self.flush_to_query_ready()
+
         if parameters:
-            # optional requirement
+            # # optional requirement
             from psycopg2.extensions import adapt
 
             if isinstance(parameters, dict):
                 for key in parameters:
-                    v = adapt(parameters[key]).getquoted()
-                    operation = operation.replace(':' + key, v)
+                    param = parameters[key]
+                    # Make sure adapt() behaves properly
+                    if isinstance(param, unicode):
+                        v = adapt(param.encode('utf8')).getquoted()
+                    else:
+                        v = adapt(param).getquoted()
+
+                    # Using a regex with word boundary to correctly handle params with similar names
+                    # such as :s and :start
+                    match_str = u':%s\\b' % unicode(key)
+                    operation = re.sub(match_str, v.decode('utf-8'), operation, re.UNICODE)
             elif isinstance(parameters, tuple):
-                operation = operation % tuple(adapt(p).getquoted() for p in parameters)
+                tlist = []
+                for p in parameters:
+                    if isinstance(p, unicode):
+                        tlist.append(adapt(p.encode('utf8')).getquoted())
+                    else:
+                        tlist.append(adapt(p).getquoted())
+                operation = operation % tuple(tlist)
             else:
                 raise errors.Error("Argument 'parameters' must be dict or tuple")
 
         self.rowcount = 0
-        self.buffered_rows = collections.deque()
-        self.last_execution = operation
+
         self.connection.write(messages.Query(operation))
 
-        self.fetch_rows()
-
-        if self.error is not None:
-            raise self.error
-
-    def executemany(self, operation, seq_of_parameters):
-        raise errors.NotSupportedError('Cursor.executemany() is not implemented')
+        # read messages until we hit an Error, DataRow or ReadyForQuery
+        while True:
+            message = self.connection.read_message()
+            # save the message because there's no way to undo the read
+            self._message = message
+            if isinstance(message, messages.ErrorResponse):
+                raise errors.QueryError.from_error_response(message, operation)
+            elif isinstance(message, messages.RowDescription):
+                self.description = map(lambda fd: Column(fd), message.fields)
+            elif (isinstance(message, messages.DataRow)
+                   or isinstance(message, messages.ReadyForQuery)):
+                break
+            else:
+                self.connection.process_message(message)
 
     def fetchone(self):
-        return self.get_one_row()
+        if isinstance(self._message, messages.DataRow):
+            self.rowcount += 1
+            row = self.row_formatter(self._message)
+            # fetch next message
+            self._message = self.connection.read_message()
+            return row
+        else:
+            self.connection.process_message(self._message)
+
+    def iterate(self):
+        row = self.fetchone()
+        while row:
+            yield row
+            row = self.fetchone()
 
     def fetchmany(self, size=None):
         if not size:
             size = self.arraysize
         results = []
         while True:
-            row = self.get_one_row()
+            row = self.fetchone()
             if not row:
                 break
             results.append(row)
@@ -85,31 +125,35 @@ class Cursor(object):
         return results
 
     def fetchall(self):
-        results = []
-        while True:
-            row = self.get_one_row()
-            if not row:
-                break
-            results.append(row)
-        return results
-
-
-    def nextset(self):
-        raise errors.NotSupportedError('Cursor.nextset() is not implemented')    
+        return list(self.iterate())
 
     def setinputsizes(self):
         pass
 
-    def setoutputsize(self,size, column=None):
+    def setoutputsize(self, size, column=None):
         pass
-
 
     #
     # Non dbApi methods
     #
-    # todo: input stream
-    def copy(self, sql, data):
+    def flush_to_query_ready(self):
+        # if the last message isnt empty or ReadyForQuery, read all remaining messages
+        if(self._message is None
+           or isinstance(self._message, messages.ReadyForQuery)):
+            return
 
+        while True:
+            message = self.connection.read_message()
+            if isinstance(message, messages.ReadyForQuery):
+                self.connection.transaction_status = message.transaction_status
+                self._message = message
+                break
+
+    def copy(self, sql, data):
+        # Legacy support
+        self.copy_string(sql, data)
+
+    def _copy_internal(self, sql, datagen):
         if self.closed():
             raise errors.Error('Cursor is closed')
 
@@ -117,72 +161,31 @@ class Cursor(object):
 
         while True:
             message = self.connection.read_message()
-            self._process_message(message=message)
-            if isinstance(message, messages.ReadyForQuery):
+            if isinstance(message, messages.ErrorResponse):
+                raise errors.QueryError.from_error_response(message, sql)
+            elif isinstance(message, messages.ReadyForQuery):
                 break
             elif isinstance(message, messages.CopyInResponse):
-                #write stuff
-                self.connection.write(messages.CopyData(data))
+                # write stuff
+                for line in datagen:
+                    self.connection.write(messages.CopyData(line))
                 self.connection.write(messages.CopyDone())
 
-        if self.error is not None:
-            raise self.error
+    def copy_string(self, sql, data):
+        self._copy_internal(sql, [data])
+
+    def copy_file(self, sql, data, decoder=None):
+        if decoder is None:
+            self._copy_internal(sql, data)
+        else:
+            self._copy_internal(sql, (line.decode(decoder) for line in data))
 
     #
     # Internal
     #
 
-
     def closed(self):
         return self._closed or self.connection.closed()
-
-    def get_one_row(self):
-        if len(self.buffered_rows) >= 1:
-            return self.buffered_rows.popleft()
-
-        return None
-
-
-    def fetch_rows(self):
-        while True:
-            message = self.connection.read_message()
-            self._process_message(message=message)
-            if isinstance(message, messages.ReadyForQuery):
-                break
-
-
-    def _process_message(self, message):
-        if isinstance(message, messages.ErrorResponse):
-            # what am i doing with self.error?
-            self.error = errors.QueryError.from_error_response(message, self.last_execution)
-        elif isinstance(message, messages.EmptyQueryResponse):
-            self.error = errors.EmptyQueryError("A SQL string was expected, but the given string was blank or only contained SQL comments.")
-        elif isinstance(message, messages.CopyInResponse):
-            pass
-        elif isinstance(message, messages.RowDescription):
-            self.set_description(message)
-        elif isinstance(message, messages.DataRow):
-            self._handle_datarow(message)
-        elif isinstance(message, messages.CommandComplete):
-            #self.result.tag = message.tag
-            pass
-        else:
-            self.connection.process_message(message)
-        return None
-
-
-    # sets column meta data
-    def set_description(self, message):
-        self.description = map(lambda fd: Column(fd), message.fields)
-
-
-    def _handle_datarow(self, datarow_message):
-        row = self.row_formatter(datarow_message)
-        if self.row_handler:
-            self.row_handler(row)
-        else:
-            self.buffered_rows.append(row)
-            self.rowcount += 1
 
     def row_formatter(self, row_data):
         if not self.cursor_type:
@@ -191,40 +194,14 @@ class Cursor(object):
             return self.format_row_as_array(row_data)
         elif self.cursor_type == 'dict':
             return self.format_row_as_dict(row_data)
-        # throw some error
+            # throw some error
 
     def format_row_as_dict(self, row_data):
-        row = {}
-        for idx, value in enumerate(row_data.values):
-            col = self.description[idx]
-            row[col.name] = col.convert(value)
-        return row
+        return dict(
+            (self.description[idx].name, self.description[idx].convert(value))
+            for idx, value in enumerate(row_data.values)
+        )
 
     def format_row_as_array(self, row_data):
-        row = []
-        for idx, value in enumerate(row_data.values):
-            col = self.description[idx]
-            row.append(col.convert(value))
-        return row
-
-
-    #COPY_FROM_IO_BLOCK_SIZE = 1024 * 4096
-
-    #def file_copy_handler(self, input_file, output):
-    #    with open(input_file, 'r') as f:
-    #        while True:
-    #            data = f.read(self.COPY_FROM_IO_BLOCK_SIZE)
-    #            if len(data) > 0:
-    #                output.write(data)
-    #            else:
-    #                break
-
-    #def io_copy_handler(self, input, output):
-    #    while True:
-    #        data = input.read(self.COPY_FROM_IO_BLOCK_SIZE)
-    #        if len(data) > 0:
-    #            output.write(data)
-    #        else:
-    #            break
-
-
+        return [self.description[idx].convert(value)
+                for idx, value in enumerate(row_data.values)]
