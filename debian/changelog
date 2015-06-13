@@ -1,4 +1,4 @@
-vertica (0.4.6-1~bbc69+1) stable; urgency=medium
+python-vertica (0.4.6-1~bbc69+1) stable; urgency=medium
 
   * Imported Upstream version 0.4.6
   * Update debian/control:
@@ -7,19 +7,19 @@ vertica (0.4.6-1~bbc69+1) stable; urgency=medium
 
  -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Sat, 13 Jun 2015 10:50:29 +0200
 
-vertica (0.3.1-1~bbc69+1) stable; urgency=medium
+python-vertica (0.3.1-1~bbc69+1) stable; urgency=medium
 
   * Imported Upstream version 0.3.1
 
  -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Sat, 20 Dec 2014 00:02:00 +0100
 
-vertica (0.3.0-1~bbc69+1) stable; urgency=medium
+python-vertica (0.3.0-1~bbc69+1) stable; urgency=medium
 
   * Imported Upstream version 0.3.0
 
  --  Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Thu, 30 Oct 2014 09:08:17 +0100
 
-vertica (0.2.3-1~bbc69+1) stable; urgency=medium
+python-vertica (0.2.3-1~bbc69+1) stable; urgency=medium
 
   * Add watch file support
   * Fix build dependencies
@@ -36,13 +36,13 @@ vertica (0.2.3-1~bbc69+1) stable; urgency=medium
 
  -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Fri, 08 Aug 2014 14:40:21 +0200
 
-vertica (0.2.0-1~bbc69+1) stable; urgency=medium
+python-vertica (0.2.0-1~bbc69+1) stable; urgency=medium
 
   * Imported Upstream version 0.2.0
 
  -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Wed, 26 Feb 2014 10:43:51 +0100
 
-vertica (0.1.9-1~bbc68+1) stable; urgency=low
+python-vertica (0.1.9-1~bbc68+1) stable; urgency=low
 
   * source package automatically created by stdeb 0.6.0+git
 
