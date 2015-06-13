@@ -18,22 +18,17 @@ from vertica_python.errors import SSLNotSupported
 logger = logging.getLogger('vertica')
 
 
-# To support vertica_python 0.1.9 interface
-class OldResults(object):
-    def __init__(self, rows):
-        self.rows = rows
-
-
 class Connection(object):
-
     def __init__(self, options=None):
         self.reset_values()
 
         options = options or {}
-        self.options = {
-            key: value for key, value in options.iteritems() if value is not None
-        }
+        self.options = dict(
+            (key, value) for key, value in options.iteritems() if value is not None
+        )
 
+        # we only support one cursor per connection
+        self._cursor = Cursor(self, None)
         self.options.setdefault('port', 5433)
         self.options.setdefault('read_timeout', 600)
         self.boot_connection()
@@ -55,18 +50,6 @@ class Connection(object):
             self.close()
 
     #
-    # To support vertica_python 0.1.9 interface
-    #
-    def query(self, query, handler=None):
-        if handler:
-            cur = Cursor(self, 'dict', handler)
-            cur.execute(query)
-        else:
-            cur = Cursor(self, 'dict')
-            cur.execute(query)
-            return OldResults(cur.fetchall())
-
-    #
     # dbApi methods
     #
 
@@ -81,24 +64,29 @@ class Connection(object):
             raise errors.ConnectionError('Connection is closed')
 
         cur = self.cursor()
-        cur.execute('commit')
+        cur.execute('COMMIT;')
 
     def rollback(self):
         if self.closed():
             raise errors.ConnectionError('Connection is closed')
 
         cur = self.cursor()
-        cur.execute('rollback')
+        cur.execute('ROLLBACK;')
 
-    def cursor(self, cursor_type=None, row_handler=None):
+    def cursor(self, cursor_type=None):
         if self.closed():
             raise errors.ConnectionError('Connection is closed')
-        return Cursor(self, cursor_type=cursor_type, row_handler=row_handler)
+
+        if self._cursor.closed():
+            self._cursor._closed = False
+
+        # let user change type if they want?
+        self._cursor.cursor_type = cursor_type
+        return self._cursor
 
     #
     # Internal
     #
-
     def reset_values(self):
         self.parameters = {}
         self.session_id = None
@@ -204,13 +192,18 @@ class Connection(object):
             self.parameters[message.name] = message.value
         elif isinstance(message, messages.ReadyForQuery):
             self.transaction_status = message.transaction_status
+        elif isinstance(message, messages.CommandComplete):
+            pass
         else:
             raise errors.MessageError("Unhandled message: {0}".format(message))
 
+        # set last message
+        self._cursor._message = message
+
     def __str__(self):
-        safe_options = {
-            key: value for key, value in self.options.iteritems() if key != 'password'
-        }
+        safe_options = dict(
+            (key, value) for key, value in self.options.iteritems() if key != 'password'
+        )
         s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
             id(self), self.parameters, self.backend_pid
         )
@@ -218,7 +211,7 @@ class Connection(object):
             self.backend_key, self.transaction_status, self.socket,
             safe_options,
         )
-        return s1+s2
+        return s1 + s2
 
     def read_bytes(self, n):
         results = ''
@@ -230,16 +223,21 @@ class Connection(object):
         return results
 
     def startup_connection(self):
-        self.write(messages.Startup(self.options['user'],
-                                    self.options.get('database')))
+        # This doesn't handle Unicode usernames or passwords
+        user = self.options['user'].encode('ascii')
+        database = self.options['database'].encode('ascii')
+        password = self.options['password'].encode('ascii')
+
+        self.write(messages.Startup(user, database))
+
         while True:
             message = self.read_message()
 
             if isinstance(message, messages.Authentication):
                 # Password message isn't right format ("incomplete message from client")
                 if message.code != messages.Authentication.OK:
-                    self.write(messages.Password(self.options['password'], message.code, {
-                        'user': self.options['user'], 'salt': getattr(message, 'salt', None)
+                    self.write(messages.Password(password, message.code, {
+                        'user': user, 'salt': getattr(message, 'salt', None)
                     }))
             else:
                 self.process_message(message)
@@ -252,5 +250,6 @@ class Connection(object):
             self.query("SET SEARCH_PATH TO {0}".format(self.options['search_path']))
         if self.options.get('role') is not None:
             self.query("SET ROLE {0}".format(self.options['role']))
-#        if self.options.get('interruptable'):
+
+# if self.options.get('interruptable'):
 #            self.session_id = self.query("SELECT session_id FROM v_monitor.current_session").the_value()
