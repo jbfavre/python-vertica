@@ -1,0 +1,18 @@
+Description: Fix invalid syntax error
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: others
+Reviewed-by: Jean Baptiste Favre <debian@jbfavre.org>
+Last-Update: 2015-06-13
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/vertica_python/vertica/connection.py
++++ b/vertica_python/vertica/connection.py
+@@ -137,7 +137,7 @@ class Connection(object):
+         logger.debug('=> %s', message)
+         try:
+             self._socket().sendall(message.to_bytes())
+-        except Exception, e:
++        except Exception as e:
+             self.close_socket()
+             raise errors.ConnectionError(e.message)
+ 
