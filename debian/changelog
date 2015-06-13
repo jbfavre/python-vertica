@@ -1,3 +1,16 @@
+python-vertica (0.4.6-1~bbc78+1) unstable; urgency=medium
+
+  * Imported Upstream version 0.4.6
+  * Fix debian/copyright format
+  * Update debian/control:
+      * Add Vcs-* and Homeppage fields
+      * Change maintainer to DPMT
+      * Add Uploaders field
+      * Remove duplicate Build-Depends
+      * Bump Standards-Version
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Sat, 13 Jun 2015 09:16:22 +0200
+
 python-vertica (0.3.6-1) unstable; urgency=medium
 
   * Imported Upstream version 0.3.6
