@@ -1,6 +1,14 @@
 python-vertica (0.4.6-1) unstable; urgency=medium
 
-  * New upstream release
+  * New upstream release 0.4.6
+  * Add patch to fix invalid syntax error
+  * Fix debian/copyright format
+  * Update debian/control:
+      * Add Vcs-* and Homeppage fields
+      * Change maintainer to DPMT
+      * Add Uploaders field
+      * Remove duplicate Build-Depends
+      * Bump Standards-Version
 
  -- Jean Baptiste Favre <debian@jbfavre.org>  Fri, 12 Jun 2015 18:19:52 +0200
 
