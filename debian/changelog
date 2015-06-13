@@ -1,3 +1,12 @@
+vertica (0.4.6-1~bbc69+1) stable; urgency=medium
+
+  * Imported Upstream version 0.4.6
+  * Update debian/control:
+  * Fix debian/copyright format
+  * Add patch to fix invalid syntax error
+
+ -- Jean Baptiste Favre <jean-baptiste.favre@blablacar.com>  Sat, 13 Jun 2015 10:50:29 +0200
+
 vertica (0.3.1-1~bbc69+1) stable; urgency=medium
 
   * Imported Upstream version 0.3.1
