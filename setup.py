@@ -7,12 +7,13 @@ ReqOpts = collections.namedtuple('ReqOpts', ['skip_requirements_regex', 'default
 
 opts = ReqOpts(None, 'git')
 
+# version should use the format 'x.x.x' (instead of 'vx.x.x')
 setup(
     name='vertica-python',
-    version='0.3.1',
+    version='0.4.6',
     description='A native Python client for the Vertica database.',
-    author='Justin Berka, Alex Kim',
-    author_email='justin.berka@gmail.com, alex.kim@uber.com',
+    author='Justin Berka, Alex Kim, Kenneth Tran',
+    author_email='justin.berka@gmail.com, alex.kim@uber.com, tran@uber.com',
     url='https://github.com/uber/vertica-python/',
     keywords="database vertica",
     packages=find_packages(),
