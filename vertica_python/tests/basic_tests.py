@@ -1,14 +1,12 @@
 import unittest
 import logging
+import tempfile
+
+from test_commons import conn_info
 
 import vertica_python
 from vertica_python import errors
 
-conn_info = {'host': '127.0.0.1', 
-             'port': 5433, 
-             'user': 'dbadmin', 
-             'password': 'unit_test', 
-             'database': 'unit_test'}
 logger = logging.getLogger('vertica')
 
 
@@ -23,11 +21,12 @@ def init_table(cur):
                     ) ;
                 """)
 
+
 class TestVerticaPython(unittest.TestCase):
 
     def test_inline_commit(self):
 
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
         
@@ -40,11 +39,11 @@ class TestVerticaPython(unittest.TestCase):
 
     def test_multi_inserts_and_transaction(self):
 
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
     
-        conn2 = vertica_python.connect(conn_info)
+        conn2 = vertica_python.connect(**conn_info)
         cur2 = conn2.cursor()
     
         # insert data without a commit
@@ -78,7 +77,7 @@ class TestVerticaPython(unittest.TestCase):
 
     def test_conn_commit(self):
 
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
     
@@ -91,7 +90,7 @@ class TestVerticaPython(unittest.TestCase):
 
     def test_update(self):
 
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
     
@@ -107,13 +106,13 @@ class TestVerticaPython(unittest.TestCase):
         assert 5 == res[0][0]
         assert 'ff' == res[0][1]
 
-    def test_copy(self):
+    def test_copy_with_string(self):
 
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
     
-        conn2 = vertica_python.connect(conn_info)
+        conn2 = vertica_python.connect(**conn_info)
         cur2 = conn.cursor()
     
         cur.copy(""" COPY vertica_python_unit_test (a, b) from stdin DELIMITER ',' """,  "1,foo\n2,bar")
@@ -133,9 +132,39 @@ class TestVerticaPython(unittest.TestCase):
         assert 2 == res[0][0]
         assert 'bar' == res[0][1]
 
+    def test_copy_with_file(self):
+
+        conn = vertica_python.connect(**conn_info)
+        cur = conn.cursor()
+        init_table(cur)
+    
+        conn2 = vertica_python.connect(**conn_info)
+        cur2 = conn.cursor()
+    
+        f = tempfile.TemporaryFile()
+        f.write("1,foo\n2,bar")
+        # move rw pointer to top of file
+        f.seek(0)
+        cur.copy(""" COPY vertica_python_unit_test (a, b) from stdin DELIMITER ',' """,  f)
+        f.close()
+    
+        # verify this cursor can see copy data
+        cur.execute("SELECT a, b from vertica_python_unit_test WHERE a = 1")
+        res = cur.fetchall()
+        assert 1 == len(res)
+        assert 1 == res[0][0]
+        assert 'foo' == res[0][1]
+    
+        # verify other cursor can see copy data
+        cur2.execute("SELECT a, b from vertica_python_unit_test WHERE a = 2")
+        res = cur2.fetchall()
+        assert 1 == len(res)
+        assert 2 == res[0][0]
+        assert 'bar' == res[0][1]
+
     def test_with_conn(self):
 
-        with vertica_python.connect(conn_info) as conn:
+        with vertica_python.connect(**conn_info) as conn:
             cur = conn.cursor()
             init_table(cur)
         
@@ -146,7 +175,7 @@ class TestVerticaPython(unittest.TestCase):
 
     def test_iterator(self):
 
-        with vertica_python.connect(conn_info) as conn:
+        with vertica_python.connect(**conn_info) as conn:
             cur = conn.cursor()
             init_table(cur)
         
@@ -173,7 +202,7 @@ class TestVerticaPython(unittest.TestCase):
 
     def test_mid_iterator_execution(self):
 
-        with vertica_python.connect(conn_info) as conn:
+        with vertica_python.connect(**conn_info) as conn:
             cur = conn.cursor()
             init_table(cur)
         
@@ -196,7 +225,7 @@ class TestVerticaPython(unittest.TestCase):
 
 
     def test_query_errors(self):
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
         
@@ -232,7 +261,7 @@ class TestVerticaPython(unittest.TestCase):
 
     def test_cursor_close_and_reuse(self):
 
-        conn = vertica_python.connect(conn_info)
+        conn = vertica_python.connect(**conn_info)
         cur = conn.cursor()
         init_table(cur)
 
