@@ -1,0 +1,605 @@
+Description: remove deprecated import for python 3
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Reviewed-by: Jean Baptiste Favre <debian@jbfavre.org>
+Last-Update: 2015-08-16
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/vertica_python/__init__.py
++++ b/vertica_python/__init__.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.connection import Connection
+ 
+--- a/vertica_python/datatypes.py
++++ b/vertica_python/datatypes.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from datetime import datetime
+ from datetime import timedelta
+--- a/vertica_python/errors.py
++++ b/vertica_python/errors.py
+@@ -1,14 +1,16 @@
+-from __future__ import absolute_import
+ 
+-import exceptions
++
++import sys
++if sys.version_info < (3,):
++    import exceptions
+ import re
+ 
+ 
+-class Error(exceptions.StandardError):
++class Error(Exception):
+     pass
+ 
+ 
+-class Warning(exceptions.StandardError):
++class Warning(Exception):
+     pass
+ 
+ 
+--- a/vertica_python/tests/basic_tests.py
++++ b/vertica_python/tests/basic_tests.py
+@@ -2,7 +2,7 @@ import unittest
+ import logging
+ import tempfile
+ 
+-from test_commons import conn_info
++from .test_commons import conn_info
+ 
+ import vertica_python
+ from vertica_python import errors
+--- a/vertica_python/tests/date_tests.py
++++ b/vertica_python/tests/date_tests.py
+@@ -1,5 +1,5 @@
+ from datetime import date
+-from test_commons import *
++from .test_commons import *
+ from vertica_python import errors
+ 
+ 
+--- a/vertica_python/vertica/column.py
++++ b/vertica_python/vertica/column.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from collections import namedtuple
+ 
+@@ -56,7 +56,7 @@ def date_parse(s):
+     if s.endswith(' BC'):
+         raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
+ 
+-    return date(*map(lambda x: int(x), s.split('-')))
++    return date(*[int(x) for x in s.split('-')])
+ 
+ ColumnTuple = namedtuple(
+     'Column',
+@@ -76,8 +76,8 @@ class Column(object):
+         ('bool', lambda s: s == 't'),
+         ('integer', lambda s: int(s)),
+         ('float', lambda s: float(s)),
+-        ('char', lambda s: unicode(s, 'utf-8')),
+-        ('varchar', lambda s: unicode(s, 'utf-8')),
++        ('char', lambda s: str(s, 'utf-8')),
++        ('varchar', lambda s: str(s, 'utf-8')),
+         ('date', date_parse),
+         ('time', None),
+         ('timestamp', timestamp_parse),
+@@ -88,7 +88,7 @@ class Column(object):
+         ('bytea', None),
+         ('rle_tuple', None),
+     ]
+-    DATA_TYPES = map(lambda x: x[0], DATA_TYPE_CONVERSIONS)
++    DATA_TYPES = [x[0] for x in DATA_TYPE_CONVERSIONS]
+ 
+     def __init__(self, col):
+ 
+@@ -128,7 +128,7 @@ class Column(object):
+         return self.props.__str__()
+ 
+     def __unicode__(self):
+-        return unicode(self.props.__str__())
++        return str(self.props.__str__())
+ 
+     def __repr__(self):
+         return self.props.__str__()
+--- a/vertica_python/vertica/connection.py
++++ b/vertica_python/vertica/connection.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import logging
+ import select
+@@ -14,6 +14,7 @@ from vertica_python.vertica.messages.mes
+ 
+ from vertica_python.vertica.cursor import Cursor
+ from vertica_python.errors import SSLNotSupported
++import collections
+ 
+ logger = logging.getLogger('vertica')
+ 
+@@ -24,7 +25,7 @@ class Connection(object):
+ 
+         options = options or {}
+         self.options = dict(
+-            (key, value) for key, value in options.iteritems() if value is not None
++            (key, value) for key, value in options.items() if value is not None
+         )
+ 
+         # we only support one cursor per connection
+@@ -133,7 +134,7 @@ class Connection(object):
+ 
+         is_stream = hasattr(message, "read_bytes")
+ 
+-        if (hasattr(message, 'to_bytes') is False or callable(getattr(message, 'to_bytes')) is False) and not is_stream:
++        if (hasattr(message, 'to_bytes') is False or isinstance(getattr(message, 'to_bytes'), collections.Callable) is False) and not is_stream:
+             raise TypeError("invalid message: ({0})".format(message))
+ 
+         logger.debug('=> %s', message)
+@@ -150,7 +151,7 @@ class Connection(object):
+ 
+                     self._socket().sendall(data)
+ 
+-        except Exception, e:
++        except Exception as e:
+             self.close_socket()
+             raise errors.ConnectionError(e.message)
+ 
+@@ -217,7 +218,7 @@ class Connection(object):
+ 
+     def __str__(self):
+         safe_options = dict(
+-            (key, value) for key, value in self.options.iteritems() if key != 'password'
++            (key, value) for key, value in self.options.items() if key != 'password'
+         )
+         s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
+             id(self), self.parameters, self.backend_pid
+--- a/vertica_python/vertica/cursor.py
++++ b/vertica_python/vertica/cursor.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import re
+ import logging
+@@ -56,19 +56,19 @@ class Cursor(object):
+                 for key in parameters:
+                     param = parameters[key]
+                     # Make sure adapt() behaves properly
+-                    if isinstance(param, unicode):
++                    if isinstance(param, str):
+                         v = adapt(param.encode('utf8')).getquoted()
+                     else:
+                         v = adapt(param).getquoted()
+ 
+                     # Using a regex with word boundary to correctly handle params with similar names
+                     # such as :s and :start
+-                    match_str = u':%s\\b' % unicode(key)
++                    match_str = ':%s\\b' % str(key)
+                     operation = re.sub(match_str, v.decode('utf-8'), operation, re.UNICODE)
+             elif isinstance(parameters, tuple):
+                 tlist = []
+                 for p in parameters:
+-                    if isinstance(p, unicode):
++                    if isinstance(p, str):
+                         tlist.append(adapt(p.encode('utf8')).getquoted())
+                     else:
+                         tlist.append(adapt(p).getquoted())
+@@ -88,7 +88,7 @@ class Cursor(object):
+             if isinstance(message, messages.ErrorResponse):
+                 raise errors.QueryError.from_error_response(message, operation)
+             elif isinstance(message, messages.RowDescription):
+-                self.description = map(lambda fd: Column(fd), message.fields)
++                self.description = [Column(fd) for fd in message.fields]
+             elif (isinstance(message, messages.DataRow)
+                    or isinstance(message, messages.ReadyForQuery)):
+                 break
+--- a/vertica_python/vertica/messages/__init__.py
++++ b/vertica_python/vertica/messages/__init__.py
+@@ -1,39 +1,39 @@
+-from backend_messages.authentication import Authentication
+-from backend_messages.backend_key_data import BackendKeyData
+-from backend_messages.bind_complete import BindComplete
+-from backend_messages.close_complete import CloseComplete
+-from backend_messages.command_complete import CommandComplete
+-from backend_messages.copy_in_response import CopyInResponse
+-from backend_messages.data_row import DataRow
+-from backend_messages.empty_query_response import EmptyQueryResponse
+-from backend_messages.error_response import ErrorResponse
+-from backend_messages.no_data import NoData
+-from backend_messages.notice_response import NoticeResponse
+-from backend_messages.parameter_description import ParameterDescription
+-from backend_messages.parameter_status import ParameterStatus
+-from backend_messages.parse_complete import ParseComplete
+-from backend_messages.portal_suspended import PortalSuspended
+-from backend_messages.ready_for_query import ReadyForQuery
+-from backend_messages.row_description import RowDescription
+-from backend_messages.unknown import Unknown
++from .backend_messages.authentication import Authentication
++from .backend_messages.backend_key_data import BackendKeyData
++from .backend_messages.bind_complete import BindComplete
++from .backend_messages.close_complete import CloseComplete
++from .backend_messages.command_complete import CommandComplete
++from .backend_messages.copy_in_response import CopyInResponse
++from .backend_messages.data_row import DataRow
++from .backend_messages.empty_query_response import EmptyQueryResponse
++from .backend_messages.error_response import ErrorResponse
++from .backend_messages.no_data import NoData
++from .backend_messages.notice_response import NoticeResponse
++from .backend_messages.parameter_description import ParameterDescription
++from .backend_messages.parameter_status import ParameterStatus
++from .backend_messages.parse_complete import ParseComplete
++from .backend_messages.portal_suspended import PortalSuspended
++from .backend_messages.ready_for_query import ReadyForQuery
++from .backend_messages.row_description import RowDescription
++from .backend_messages.unknown import Unknown
+ 
+-from frontend_messages.bind import Bind
+-from frontend_messages.cancel_request import CancelRequest
+-from frontend_messages.close import Close
+-from frontend_messages.copy_data import CopyData
+-from frontend_messages.copy_stream import CopyStream
+-from frontend_messages.copy_done import CopyDone
+-from frontend_messages.copy_fail import CopyFail
+-from frontend_messages.describe import Describe
+-from frontend_messages.execute import Execute
+-from frontend_messages.flush import Flush
+-from frontend_messages.parse import Parse
+-from frontend_messages.password import Password
+-from frontend_messages.query import Query
+-from frontend_messages.ssl_request import SslRequest
+-from frontend_messages.startup import Startup
+-from frontend_messages.sync import Sync
+-from frontend_messages.terminate import Terminate
++from .frontend_messages.bind import Bind
++from .frontend_messages.cancel_request import CancelRequest
++from .frontend_messages.close import Close
++from .frontend_messages.copy_data import CopyData
++from .frontend_messages.copy_stream import CopyStream
++from .frontend_messages.copy_done import CopyDone
++from .frontend_messages.copy_fail import CopyFail
++from .frontend_messages.describe import Describe
++from .frontend_messages.execute import Execute
++from .frontend_messages.flush import Flush
++from .frontend_messages.parse import Parse
++from .frontend_messages.password import Password
++from .frontend_messages.query import Query
++from .frontend_messages.ssl_request import SslRequest
++from .frontend_messages.startup import Startup
++from .frontend_messages.sync import Sync
++from .frontend_messages.terminate import Terminate
+ 
+ __all__ = ["Authentication", "BackendKeyData", "BindComplete", "CloseComplete", "CommandComplete",
+            "CopyInResponse", "DataRow", "EmptyQueryResponse", "ErrorResponse", "NoData", "NoticeResponse",
+--- a/vertica_python/vertica/messages/backend_messages/authentication.py
++++ b/vertica_python/vertica/messages/backend_messages/authentication.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import unpack
+ 
+--- a/vertica_python/vertica/messages/backend_messages/backend_key_data.py
++++ b/vertica_python/vertica/messages/backend_messages/backend_key_data.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import unpack
+ 
+--- a/vertica_python/vertica/messages/backend_messages/bind_complete.py
++++ b/vertica_python/vertica/messages/backend_messages/bind_complete.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/backend_messages/close_complete.py
++++ b/vertica_python/vertica/messages/backend_messages/close_complete.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/backend_messages/command_complete.py
++++ b/vertica_python/vertica/messages/backend_messages/command_complete.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import re
+ 
+--- a/vertica_python/vertica/messages/backend_messages/copy_in_response.py
++++ b/vertica_python/vertica/messages/backend_messages/copy_in_response.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import unpack
+ 
+--- a/vertica_python/vertica/messages/backend_messages/data_row.py
++++ b/vertica_python/vertica/messages/backend_messages/data_row.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import unpack, unpack_from
+ 
+@@ -12,7 +12,7 @@ class DataRow(BackendMessage):
+         field_count = unpack('!H', data[0:2])[0]
+         pos = 2
+ 
+-        for i in xrange(field_count):
++        for i in range(field_count):
+             size = unpack_from('!I', data, pos)[0]
+ 
+             if size == 4294967295:
+--- a/vertica_python/vertica/messages/backend_messages/empty_query_response.py
++++ b/vertica_python/vertica/messages/backend_messages/empty_query_response.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/backend_messages/error_response.py
++++ b/vertica_python/vertica/messages/backend_messages/error_response.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ from vertica_python.vertica.messages.backend_messages.notice_response import NoticeResponse
+--- a/vertica_python/vertica/messages/backend_messages/no_data.py
++++ b/vertica_python/vertica/messages/backend_messages/no_data.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/backend_messages/notice_response.py
++++ b/vertica_python/vertica/messages/backend_messages/notice_response.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import string
+ 
+--- a/vertica_python/vertica/messages/backend_messages/parameter_description.py
++++ b/vertica_python/vertica/messages/backend_messages/parameter_description.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import unpack, unpack_from
+ 
+--- a/vertica_python/vertica/messages/backend_messages/parameter_status.py
++++ b/vertica_python/vertica/messages/backend_messages/parameter_status.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import string
+ 
+--- a/vertica_python/vertica/messages/backend_messages/parse_complete.py
++++ b/vertica_python/vertica/messages/backend_messages/parse_complete.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/backend_messages/portal_suspended.py
++++ b/vertica_python/vertica/messages/backend_messages/portal_suspended.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/backend_messages/ready_for_query.py
++++ b/vertica_python/vertica/messages/backend_messages/ready_for_query.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import unpack
+ 
+--- a/vertica_python/vertica/messages/backend_messages/row_description.py
++++ b/vertica_python/vertica/messages/backend_messages/row_description.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import string
+ 
+@@ -15,7 +15,7 @@ class RowDescription(BackendMessage):
+         field_count = unpack('!H', data[0:2])[0]
+         pos = 2
+ 
+-        for i in xrange(field_count):
++        for i in range(field_count):
+             field_info = unpack_from("!{0}sxIHIHIH".format(string.find(data, '\x00', pos) - pos), data, pos)
+             self.fields.append({
+                 'name': field_info[0],
+--- a/vertica_python/vertica/messages/backend_messages/unknown.py
++++ b/vertica_python/vertica/messages/backend_messages/unknown.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import BackendMessage
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/bind.py
++++ b/vertica_python/vertica/messages/frontend_messages/bind.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+@@ -14,7 +14,7 @@ class Bind(FrontendMessage):
+ 
+     def to_bytes(self):
+         bytes = pack('!{0}sx{1}sxHH'.format(len(self.portal_name), len(self.prepared_statement_name)), self.portal_name, self.prepared_statement_name, 0, len(self.parameter_values))
+-        for val in self.parameter_values.values():
++        for val in list(self.parameter_values.values()):
+             if val is None:
+                 bytes += pack('!I', [-1])
+             else:
+--- a/vertica_python/vertica/messages/frontend_messages/cancel_request.py
++++ b/vertica_python/vertica/messages/frontend_messages/cancel_request.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/close.py
++++ b/vertica_python/vertica/messages/frontend_messages/close.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/copy_data.py
++++ b/vertica_python/vertica/messages/frontend_messages/copy_data.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/copy_done.py
++++ b/vertica_python/vertica/messages/frontend_messages/copy_done.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import FrontendMessage
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/copy_fail.py
++++ b/vertica_python/vertica/messages/frontend_messages/copy_fail.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/copy_stream.py
++++ b/vertica_python/vertica/messages/frontend_messages/copy_stream.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/describe.py
++++ b/vertica_python/vertica/messages/frontend_messages/describe.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/execute.py
++++ b/vertica_python/vertica/messages/frontend_messages/execute.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/flush.py
++++ b/vertica_python/vertica/messages/frontend_messages/flush.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import FrontendMessage
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/parse.py
++++ b/vertica_python/vertica/messages/frontend_messages/parse.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/password.py
++++ b/vertica_python/vertica/messages/frontend_messages/password.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import os
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/query.py
++++ b/vertica_python/vertica/messages/frontend_messages/query.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+@@ -13,7 +13,7 @@ class Query(FrontendMessage):
+     def to_bytes(self):
+         s = self.query_string
+         if isinstance(s, str):
+-                s = unicode(s, 'utf-8')
++                s = str(s, 'utf-8')
+         encoded = s.encode('utf-8')
+         return self.message_string(pack('{0}sx'.format(len(encoded)), encoded))
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/ssl_request.py
++++ b/vertica_python/vertica/messages/frontend_messages/ssl_request.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/startup.py
++++ b/vertica_python/vertica/messages/frontend_messages/startup.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from struct import pack
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/sync.py
++++ b/vertica_python/vertica/messages/frontend_messages/sync.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import FrontendMessage
+ 
+--- a/vertica_python/vertica/messages/frontend_messages/terminate.py
++++ b/vertica_python/vertica/messages/frontend_messages/terminate.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ from vertica_python.vertica.messages.message import FrontendMessage
+ 
+--- a/vertica_python/vertica/messages/message.py
++++ b/vertica_python/vertica/messages/message.py
+@@ -1,4 +1,4 @@
+-from __future__ import absolute_import
++
+ 
+ import types
+ 

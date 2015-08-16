@@ -1,7 +1,14 @@
+python-vertica (0.5.1-1) unstable; urgency=medium
+
+  * Imported Upstream version 0.5.1
+  * Patches refresh for 0.5.1
+  * Updated build dependencies
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Sun, 16 Aug 2015 10:08:11 +0200
+
 python-vertica (0.4.6-1) unstable; urgency=medium
 
-  * New upstream release 0.4.6
-  * Add patch to fix invalid syntax error
+  * Imported Upstream version 0.4.6
   * Fix debian/copyright format
   * Update debian/control:
       * Add Vcs-* and Homeppage fields
@@ -10,7 +17,14 @@ python-vertica (0.4.6-1) unstable; urgency=medium
       * Remove duplicate Build-Depends
       * Bump Standards-Version
 
- -- Jean Baptiste Favre <debian@jbfavre.org>  Fri, 12 Jun 2015 18:19:52 +0200
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Sat, 13 Jun 2015 09:16:22 +0200
+
+python-vertica (0.3.6-1) unstable; urgency=medium
+
+  * Imported Upstream version 0.3.6
+  * Update copyright & watch files
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Wed, 15 Apr 2015 14:25:25 +0200
 
 python-vertica (0.2.3-1) unstable; urgency=medium
 
