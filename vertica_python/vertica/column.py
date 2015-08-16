@@ -6,6 +6,7 @@ from decimal import Decimal
 from datetime import date
 from datetime import datetime
 from dateutil import parser
+from vertica_python import errors
 
 import pytz
 
@@ -45,6 +46,18 @@ def timestamp_tz_parse(s):
     return parser.parse(s)
 
 
+def date_parse(s):
+    """
+    Parses value of a DATE type.
+    :param s: string to parse into date
+    :return: an instance of datetime.date
+    :raises NotSupportedError when a date Before Christ is encountered
+    """
+    if s.endswith(' BC'):
+        raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
+
+    return date(*map(lambda x: int(x), s.split('-')))
+
 ColumnTuple = namedtuple(
     'Column',
     ['name', 'type_code', 'display_size', 'internal_size',
@@ -65,7 +78,7 @@ class Column(object):
         ('float', lambda s: float(s)),
         ('char', lambda s: unicode(s, 'utf-8')),
         ('varchar', lambda s: unicode(s, 'utf-8')),
-        ('date', lambda s: date(*map(lambda x: int(x), s.split('-')))),
+        ('date', date_parse),
         ('time', None),
         ('timestamp', timestamp_parse),
         ('timestamp_tz', timestamp_tz_parse),
@@ -87,13 +100,16 @@ class Column(object):
         self.scale = None
         self.null_ok = None
 
-        self.props = ColumnTuple(col['name'], col['data_type_oid'], None,
-                                 col['data_type_size'], None, None, None)
+        # WORKAROUND: Treat LONGVARCHAR as VARCHAR
+        if self.type_code == 115:
+            self.type_code = 9
 
-        try:
-            self.converter = self.DATA_TYPE_CONVERSIONS[col['data_type_oid']][1]
-        except IndexError:
-            self.converter = self.DATA_TYPE_CONVERSIONS[0][1]
+        #self.props = ColumnTuple(col['name'], col['data_type_oid'], None, col['data_type_size'], None, None, None)
+        self.props = ColumnTuple(col['name'], self.type_code, None, col['data_type_size'], None, None, None)
+
+        #self.converter = self.DATA_TYPE_CONVERSIONS[col['data_type_oid']][1]
+        self.converter = self.DATA_TYPE_CONVERSIONS[self.type_code][1]
+
         # things that are actually sent
 #        self.name = col['name']
 #        self.data_type = self.DATA_TYPE_CONVERSIONS[col['data_type_oid']][0]
