@@ -1,4 +1,12 @@
-python-vertica (0.4.6-1~bbc78+1) unstable; urgency=medium
+python-vertica (0.5.1-1) unstable; urgency=medium
+
+  * Imported Upstream version 0.5.1
+  * Patches refresh for 0.5.1
+  * Updated build dependencies
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Sun, 16 Aug 2015 10:08:11 +0200
+
+python-vertica (0.4.6-1) unstable; urgency=medium
 
   * Imported Upstream version 0.4.6
   * Fix debian/copyright format
