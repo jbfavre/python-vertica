@@ -3,7 +3,11 @@ Section: contrib/python
 Priority: optional
 Maintainer: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
 Uploaders: Jean Baptiste Favre <debian@jbfavre.org>
-Build-Depends: python-setuptools (>= 0.6b3), python-all (>= 2.6.6-3), debhelper (>= 7.4.3)
+Build-Depends: python-setuptools (>= 0.6b3),
+               python-all (>= 2.6.6-3),
+               python-dateutil,
+               python-tz,
+               debhelper (>= 8)
 Standards-Version: 3.9.6
 Homepage: https://github.com/uber/vertica-python
 Vcs-Svn: svn://anonscm.debian.org/python-modules/packages/python-vertica/trunk
