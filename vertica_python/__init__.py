@@ -6,7 +6,7 @@ from vertica_python.vertica.connection import Connection
 # Main module for this library.
 
 # The version number of this library.
-version_info = (0, 4, 6)
+version_info = (0, 5, 1)
 
 __version__ = '.'.join(map(str, version_info))
 
@@ -25,6 +25,6 @@ threadsafety = 1
 paramstyle = 'named'  # WHERE name=:name
 
 
-def connect(options):
+def connect(**kwargs):
     """Opens a new connection to a Vertica database."""
-    return Connection(options)
+    return Connection(kwargs)

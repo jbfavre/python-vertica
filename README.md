@@ -2,10 +2,12 @@
 
 [![PyPI version](https://badge.fury.io/py/vertica-python.png)](http://badge.fury.io/py/vertica-python)
 
+0.5.x changes the connection method to accept kwargs instead of a dict to be more dbapi compliant.
+      copy methods improved and consolidated in 0.5.1
+
 0.4.x breaks some of the older query interfaces (row_handler callback, and connection.query).
 It replaces the row_handler callback with an iterate() method. Please see examples below
-
-If you are on 0.4.0 - 0.4.3, please upgrade to 0.4.5 as there are various bug fixes
+If you are on 0.4.x, please upgrade to 0.4.6 as there are various bug fixes
 
 vertica-python is a native Python adapter for the Vertica (http://www.vertica.com) database.
 
@@ -60,12 +62,12 @@ conn_info = {'host': '127.0.0.1',
              'database': 'a_database'}
 
 # simple connection, with manual close
-connection = vertica_python.connect(conn_info)
+connection = vertica_python.connect(**conn_info)
 # do things
 connection.close()
 
 # using with for auto connection closing after usage
-with vertica_python.connect(conn_info) as connection:
+with vertica_python.connect(**conn_info) as connection:
     # do things
 ```
 
@@ -138,8 +140,10 @@ connection.commit()
 
 ```python
 cur = connection.cursor()
-cur.copy("COPY test_copy (id, name) from stdin DELIMITER ',' ",  "1,foo\n2,bar")
+cur.copy("COPY test_copy (id, name) from stdin DELIMITER ',' ",  csv)
 ```
+
+Where `csv` is either a string or a file-like object (specifically, any object with a `read()` method). If using a file, the data is streamed.
 
 
 ## License
