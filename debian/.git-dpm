@@ -6,3 +6,6 @@ c27b710dd5e2ca677e26d1cf7adf59f4f20957a6
 python-vertica_0.5.1.orig.tar.gz
 23eaa955046acb4e36e583246219f004587f23d2
 20974
+debianTag="debian/%e%v"
+patchedTag="patched/%e%v"
+upstreamTag="upstream/%e%u"
