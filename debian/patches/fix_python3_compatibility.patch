@@ -1,10 +1,62 @@
-Description: remove deprecated import for python 3
-Author: Jean Baptiste Favre <debian@jbfavre.org>
+From c27b710dd5e2ca677e26d1cf7adf59f4f20957a6 Mon Sep 17 00:00:00 2001
+From: Jean Baptiste Favre <debian@jbfavre.org>
+Date: Thu, 8 Oct 2015 13:20:49 -0700
+Subject: remove deprecated import for python 3
+
 Origin: other
 Reviewed-by: Jean Baptiste Favre <debian@jbfavre.org>
 Last-Update: 2015-08-16
+Patch-Name: fix_python3_compatibility.patch
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ vertica_python/__init__.py                         |  2 +-
+ vertica_python/datatypes.py                        |  2 +-
+ vertica_python/errors.py                           | 10 ++--
+ vertica_python/tests/basic_tests.py                |  2 +-
+ vertica_python/tests/date_tests.py                 |  2 +-
+ vertica_python/vertica/column.py                   | 12 ++--
+ vertica_python/vertica/connection.py               | 11 ++--
+ vertica_python/vertica/cursor.py                   | 10 ++--
+ vertica_python/vertica/messages/__init__.py        | 70 +++++++++++-----------
+ .../messages/backend_messages/authentication.py    |  2 +-
+ .../messages/backend_messages/backend_key_data.py  |  2 +-
+ .../messages/backend_messages/bind_complete.py     |  2 +-
+ .../messages/backend_messages/close_complete.py    |  2 +-
+ .../messages/backend_messages/command_complete.py  |  2 +-
+ .../messages/backend_messages/copy_in_response.py  |  2 +-
+ .../vertica/messages/backend_messages/data_row.py  |  4 +-
+ .../backend_messages/empty_query_response.py       |  2 +-
+ .../messages/backend_messages/error_response.py    |  2 +-
+ .../vertica/messages/backend_messages/no_data.py   |  2 +-
+ .../messages/backend_messages/notice_response.py   |  2 +-
+ .../backend_messages/parameter_description.py      |  2 +-
+ .../messages/backend_messages/parameter_status.py  |  2 +-
+ .../messages/backend_messages/parse_complete.py    |  2 +-
+ .../messages/backend_messages/portal_suspended.py  |  2 +-
+ .../messages/backend_messages/ready_for_query.py   |  2 +-
+ .../messages/backend_messages/row_description.py   |  4 +-
+ .../vertica/messages/backend_messages/unknown.py   |  2 +-
+ .../vertica/messages/frontend_messages/bind.py     |  4 +-
+ .../messages/frontend_messages/cancel_request.py   |  2 +-
+ .../vertica/messages/frontend_messages/close.py    |  2 +-
+ .../messages/frontend_messages/copy_data.py        |  2 +-
+ .../messages/frontend_messages/copy_done.py        |  2 +-
+ .../messages/frontend_messages/copy_fail.py        |  2 +-
+ .../messages/frontend_messages/copy_stream.py      |  2 +-
+ .../vertica/messages/frontend_messages/describe.py |  2 +-
+ .../vertica/messages/frontend_messages/execute.py  |  2 +-
+ .../vertica/messages/frontend_messages/flush.py    |  2 +-
+ .../vertica/messages/frontend_messages/parse.py    |  2 +-
+ .../vertica/messages/frontend_messages/password.py |  2 +-
+ .../vertica/messages/frontend_messages/query.py    |  4 +-
+ .../messages/frontend_messages/ssl_request.py      |  2 +-
+ .../vertica/messages/frontend_messages/startup.py  |  2 +-
+ .../vertica/messages/frontend_messages/sync.py     |  2 +-
+ .../messages/frontend_messages/terminate.py        |  2 +-
+ vertica_python/vertica/messages/message.py         |  2 +-
+ 45 files changed, 102 insertions(+), 99 deletions(-)
+
+diff --git a/vertica_python/__init__.py b/vertica_python/__init__.py
+index 63967d6..6625507 100644
 --- a/vertica_python/__init__.py
 +++ b/vertica_python/__init__.py
 @@ -1,4 +1,4 @@
@@ -13,6 +65,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.connection import Connection
  
+diff --git a/vertica_python/datatypes.py b/vertica_python/datatypes.py
+index c459295..89fe296 100644
 --- a/vertica_python/datatypes.py
 +++ b/vertica_python/datatypes.py
 @@ -1,4 +1,4 @@
@@ -21,6 +75,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from datetime import datetime
  from datetime import timedelta
+diff --git a/vertica_python/errors.py b/vertica_python/errors.py
+index 1b9f842..28bc605 100644
 --- a/vertica_python/errors.py
 +++ b/vertica_python/errors.py
 @@ -1,14 +1,16 @@
@@ -44,6 +100,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      pass
  
  
+diff --git a/vertica_python/tests/basic_tests.py b/vertica_python/tests/basic_tests.py
+index 5991c6c..cd3e281 100644
 --- a/vertica_python/tests/basic_tests.py
 +++ b/vertica_python/tests/basic_tests.py
 @@ -2,7 +2,7 @@ import unittest
@@ -55,6 +113,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  import vertica_python
  from vertica_python import errors
+diff --git a/vertica_python/tests/date_tests.py b/vertica_python/tests/date_tests.py
+index 91b1a4d..ac78025 100644
 --- a/vertica_python/tests/date_tests.py
 +++ b/vertica_python/tests/date_tests.py
 @@ -1,5 +1,5 @@
@@ -64,6 +124,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  from vertica_python import errors
  
  
+diff --git a/vertica_python/vertica/column.py b/vertica_python/vertica/column.py
+index 1c6a258..0f026ce 100644
 --- a/vertica_python/vertica/column.py
 +++ b/vertica_python/vertica/column.py
 @@ -1,4 +1,4 @@
@@ -110,6 +172,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
      def __repr__(self):
          return self.props.__str__()
+diff --git a/vertica_python/vertica/connection.py b/vertica_python/vertica/connection.py
+index 846ea08..9fee670 100644
 --- a/vertica_python/vertica/connection.py
 +++ b/vertica_python/vertica/connection.py
 @@ -1,4 +1,4 @@
@@ -118,7 +182,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  import logging
  import select
-@@ -14,6 +14,7 @@ from vertica_python.vertica.messages.mes
+@@ -14,6 +14,7 @@ from vertica_python.vertica.messages.message import BackendMessage
  
  from vertica_python.vertica.cursor import Cursor
  from vertica_python.errors import SSLNotSupported
@@ -162,6 +226,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
          )
          s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
              id(self), self.parameters, self.backend_pid
+diff --git a/vertica_python/vertica/cursor.py b/vertica_python/vertica/cursor.py
+index dc987fe..8bbcc9e 100644
 --- a/vertica_python/vertica/cursor.py
 +++ b/vertica_python/vertica/cursor.py
 @@ -1,4 +1,4 @@
@@ -202,6 +268,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              elif (isinstance(message, messages.DataRow)
                     or isinstance(message, messages.ReadyForQuery)):
                  break
+diff --git a/vertica_python/vertica/messages/__init__.py b/vertica_python/vertica/messages/__init__.py
+index d15ed69..7168246 100644
 --- a/vertica_python/vertica/messages/__init__.py
 +++ b/vertica_python/vertica/messages/__init__.py
 @@ -1,39 +1,39 @@
@@ -279,6 +347,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  __all__ = ["Authentication", "BackendKeyData", "BindComplete", "CloseComplete", "CommandComplete",
             "CopyInResponse", "DataRow", "EmptyQueryResponse", "ErrorResponse", "NoData", "NoticeResponse",
+diff --git a/vertica_python/vertica/messages/backend_messages/authentication.py b/vertica_python/vertica/messages/backend_messages/authentication.py
+index 54add1a..6575207 100644
 --- a/vertica_python/vertica/messages/backend_messages/authentication.py
 +++ b/vertica_python/vertica/messages/backend_messages/authentication.py
 @@ -1,4 +1,4 @@
@@ -287,6 +357,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import unpack
  
+diff --git a/vertica_python/vertica/messages/backend_messages/backend_key_data.py b/vertica_python/vertica/messages/backend_messages/backend_key_data.py
+index 317d450..ce1ce52 100644
 --- a/vertica_python/vertica/messages/backend_messages/backend_key_data.py
 +++ b/vertica_python/vertica/messages/backend_messages/backend_key_data.py
 @@ -1,4 +1,4 @@
@@ -295,6 +367,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import unpack
  
+diff --git a/vertica_python/vertica/messages/backend_messages/bind_complete.py b/vertica_python/vertica/messages/backend_messages/bind_complete.py
+index 5d25e1d..e2510da 100644
 --- a/vertica_python/vertica/messages/backend_messages/bind_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/bind_complete.py
 @@ -1,4 +1,4 @@
@@ -303,6 +377,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/backend_messages/close_complete.py b/vertica_python/vertica/messages/backend_messages/close_complete.py
+index fea59dd..bf138c1 100644
 --- a/vertica_python/vertica/messages/backend_messages/close_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/close_complete.py
 @@ -1,4 +1,4 @@
@@ -311,6 +387,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/backend_messages/command_complete.py b/vertica_python/vertica/messages/backend_messages/command_complete.py
+index 92873f2..ab0be2c 100644
 --- a/vertica_python/vertica/messages/backend_messages/command_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/command_complete.py
 @@ -1,4 +1,4 @@
@@ -319,6 +397,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  import re
  
+diff --git a/vertica_python/vertica/messages/backend_messages/copy_in_response.py b/vertica_python/vertica/messages/backend_messages/copy_in_response.py
+index 1566035..78ea2ca 100644
 --- a/vertica_python/vertica/messages/backend_messages/copy_in_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/copy_in_response.py
 @@ -1,4 +1,4 @@
@@ -327,6 +407,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import unpack
  
+diff --git a/vertica_python/vertica/messages/backend_messages/data_row.py b/vertica_python/vertica/messages/backend_messages/data_row.py
+index 52eec1a..163b19d 100644
 --- a/vertica_python/vertica/messages/backend_messages/data_row.py
 +++ b/vertica_python/vertica/messages/backend_messages/data_row.py
 @@ -1,4 +1,4 @@
@@ -344,6 +426,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              size = unpack_from('!I', data, pos)[0]
  
              if size == 4294967295:
+diff --git a/vertica_python/vertica/messages/backend_messages/empty_query_response.py b/vertica_python/vertica/messages/backend_messages/empty_query_response.py
+index fbe68aa..3ba6a7d 100644
 --- a/vertica_python/vertica/messages/backend_messages/empty_query_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/empty_query_response.py
 @@ -1,4 +1,4 @@
@@ -352,6 +436,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/backend_messages/error_response.py b/vertica_python/vertica/messages/backend_messages/error_response.py
+index 471c16e..5ad1065 100644
 --- a/vertica_python/vertica/messages/backend_messages/error_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/error_response.py
 @@ -1,4 +1,4 @@
@@ -360,6 +446,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  from vertica_python.vertica.messages.backend_messages.notice_response import NoticeResponse
+diff --git a/vertica_python/vertica/messages/backend_messages/no_data.py b/vertica_python/vertica/messages/backend_messages/no_data.py
+index b9c3c7c..cb4030d 100644
 --- a/vertica_python/vertica/messages/backend_messages/no_data.py
 +++ b/vertica_python/vertica/messages/backend_messages/no_data.py
 @@ -1,4 +1,4 @@
@@ -368,6 +456,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/backend_messages/notice_response.py b/vertica_python/vertica/messages/backend_messages/notice_response.py
+index e0dc35c..4916fef 100644
 --- a/vertica_python/vertica/messages/backend_messages/notice_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/notice_response.py
 @@ -1,4 +1,4 @@
@@ -376,6 +466,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  import string
  
+diff --git a/vertica_python/vertica/messages/backend_messages/parameter_description.py b/vertica_python/vertica/messages/backend_messages/parameter_description.py
+index 90bc79b..9a5dbfb 100644
 --- a/vertica_python/vertica/messages/backend_messages/parameter_description.py
 +++ b/vertica_python/vertica/messages/backend_messages/parameter_description.py
 @@ -1,4 +1,4 @@
@@ -384,6 +476,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import unpack, unpack_from
  
+diff --git a/vertica_python/vertica/messages/backend_messages/parameter_status.py b/vertica_python/vertica/messages/backend_messages/parameter_status.py
+index 06c952a..7c32b24 100644
 --- a/vertica_python/vertica/messages/backend_messages/parameter_status.py
 +++ b/vertica_python/vertica/messages/backend_messages/parameter_status.py
 @@ -1,4 +1,4 @@
@@ -392,6 +486,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  import string
  
+diff --git a/vertica_python/vertica/messages/backend_messages/parse_complete.py b/vertica_python/vertica/messages/backend_messages/parse_complete.py
+index ea3c1ab..d286714 100644
 --- a/vertica_python/vertica/messages/backend_messages/parse_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/parse_complete.py
 @@ -1,4 +1,4 @@
@@ -400,6 +496,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/backend_messages/portal_suspended.py b/vertica_python/vertica/messages/backend_messages/portal_suspended.py
+index 773f078..3b94325 100644
 --- a/vertica_python/vertica/messages/backend_messages/portal_suspended.py
 +++ b/vertica_python/vertica/messages/backend_messages/portal_suspended.py
 @@ -1,4 +1,4 @@
@@ -408,6 +506,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/backend_messages/ready_for_query.py b/vertica_python/vertica/messages/backend_messages/ready_for_query.py
+index 1c38a5a..c6640e7 100644
 --- a/vertica_python/vertica/messages/backend_messages/ready_for_query.py
 +++ b/vertica_python/vertica/messages/backend_messages/ready_for_query.py
 @@ -1,4 +1,4 @@
@@ -416,6 +516,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import unpack
  
+diff --git a/vertica_python/vertica/messages/backend_messages/row_description.py b/vertica_python/vertica/messages/backend_messages/row_description.py
+index 1913f32..0e621cf 100644
 --- a/vertica_python/vertica/messages/backend_messages/row_description.py
 +++ b/vertica_python/vertica/messages/backend_messages/row_description.py
 @@ -1,4 +1,4 @@
@@ -433,6 +535,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              field_info = unpack_from("!{0}sxIHIHIH".format(string.find(data, '\x00', pos) - pos), data, pos)
              self.fields.append({
                  'name': field_info[0],
+diff --git a/vertica_python/vertica/messages/backend_messages/unknown.py b/vertica_python/vertica/messages/backend_messages/unknown.py
+index e646e89..9333801 100644
 --- a/vertica_python/vertica/messages/backend_messages/unknown.py
 +++ b/vertica_python/vertica/messages/backend_messages/unknown.py
 @@ -1,4 +1,4 @@
@@ -441,6 +545,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/bind.py b/vertica_python/vertica/messages/frontend_messages/bind.py
+index bc4bb23..0a1644d 100644
 --- a/vertica_python/vertica/messages/frontend_messages/bind.py
 +++ b/vertica_python/vertica/messages/frontend_messages/bind.py
 @@ -1,4 +1,4 @@
@@ -458,6 +564,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              if val is None:
                  bytes += pack('!I', [-1])
              else:
+diff --git a/vertica_python/vertica/messages/frontend_messages/cancel_request.py b/vertica_python/vertica/messages/frontend_messages/cancel_request.py
+index 6e38ef0..b009760 100644
 --- a/vertica_python/vertica/messages/frontend_messages/cancel_request.py
 +++ b/vertica_python/vertica/messages/frontend_messages/cancel_request.py
 @@ -1,4 +1,4 @@
@@ -466,6 +574,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/close.py b/vertica_python/vertica/messages/frontend_messages/close.py
+index 30f8bc3..e18ce0b 100644
 --- a/vertica_python/vertica/messages/frontend_messages/close.py
 +++ b/vertica_python/vertica/messages/frontend_messages/close.py
 @@ -1,4 +1,4 @@
@@ -474,6 +584,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/copy_data.py b/vertica_python/vertica/messages/frontend_messages/copy_data.py
+index 0d30748..23016c8 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_data.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_data.py
 @@ -1,4 +1,4 @@
@@ -482,6 +594,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/copy_done.py b/vertica_python/vertica/messages/frontend_messages/copy_done.py
+index 6e0697f..9d81088 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_done.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_done.py
 @@ -1,4 +1,4 @@
@@ -490,6 +604,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/copy_fail.py b/vertica_python/vertica/messages/frontend_messages/copy_fail.py
+index 436ba9c..1458b50 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_fail.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_fail.py
 @@ -1,4 +1,4 @@
@@ -498,6 +614,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/copy_stream.py b/vertica_python/vertica/messages/frontend_messages/copy_stream.py
+index 29bdc15..97af9ca 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_stream.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_stream.py
 @@ -1,4 +1,4 @@
@@ -506,6 +624,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/describe.py b/vertica_python/vertica/messages/frontend_messages/describe.py
+index 49e3630..c07f9a0 100644
 --- a/vertica_python/vertica/messages/frontend_messages/describe.py
 +++ b/vertica_python/vertica/messages/frontend_messages/describe.py
 @@ -1,4 +1,4 @@
@@ -514,6 +634,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/execute.py b/vertica_python/vertica/messages/frontend_messages/execute.py
+index df52f25..ad2d250 100644
 --- a/vertica_python/vertica/messages/frontend_messages/execute.py
 +++ b/vertica_python/vertica/messages/frontend_messages/execute.py
 @@ -1,4 +1,4 @@
@@ -522,6 +644,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/flush.py b/vertica_python/vertica/messages/frontend_messages/flush.py
+index 64f06e1..a124e99 100644
 --- a/vertica_python/vertica/messages/frontend_messages/flush.py
 +++ b/vertica_python/vertica/messages/frontend_messages/flush.py
 @@ -1,4 +1,4 @@
@@ -530,6 +654,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/parse.py b/vertica_python/vertica/messages/frontend_messages/parse.py
+index 93056c9..bd7d120 100644
 --- a/vertica_python/vertica/messages/frontend_messages/parse.py
 +++ b/vertica_python/vertica/messages/frontend_messages/parse.py
 @@ -1,4 +1,4 @@
@@ -538,6 +664,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/password.py b/vertica_python/vertica/messages/frontend_messages/password.py
+index b14c390..e6b7e37 100644
 --- a/vertica_python/vertica/messages/frontend_messages/password.py
 +++ b/vertica_python/vertica/messages/frontend_messages/password.py
 @@ -1,4 +1,4 @@
@@ -546,6 +674,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  import os
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/query.py b/vertica_python/vertica/messages/frontend_messages/query.py
+index 5ca8f3d..5b18784 100644
 --- a/vertica_python/vertica/messages/frontend_messages/query.py
 +++ b/vertica_python/vertica/messages/frontend_messages/query.py
 @@ -1,4 +1,4 @@
@@ -563,6 +693,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
          encoded = s.encode('utf-8')
          return self.message_string(pack('{0}sx'.format(len(encoded)), encoded))
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/ssl_request.py b/vertica_python/vertica/messages/frontend_messages/ssl_request.py
+index f324074..a26e285 100644
 --- a/vertica_python/vertica/messages/frontend_messages/ssl_request.py
 +++ b/vertica_python/vertica/messages/frontend_messages/ssl_request.py
 @@ -1,4 +1,4 @@
@@ -571,6 +703,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/startup.py b/vertica_python/vertica/messages/frontend_messages/startup.py
+index d796107..89d53e5 100644
 --- a/vertica_python/vertica/messages/frontend_messages/startup.py
 +++ b/vertica_python/vertica/messages/frontend_messages/startup.py
 @@ -1,4 +1,4 @@
@@ -579,6 +713,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from struct import pack
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/sync.py b/vertica_python/vertica/messages/frontend_messages/sync.py
+index 1e3ab36..70d70b9 100644
 --- a/vertica_python/vertica/messages/frontend_messages/sync.py
 +++ b/vertica_python/vertica/messages/frontend_messages/sync.py
 @@ -1,4 +1,4 @@
@@ -587,6 +723,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+diff --git a/vertica_python/vertica/messages/frontend_messages/terminate.py b/vertica_python/vertica/messages/frontend_messages/terminate.py
+index 08b6184..6cdba51 100644
 --- a/vertica_python/vertica/messages/frontend_messages/terminate.py
 +++ b/vertica_python/vertica/messages/frontend_messages/terminate.py
 @@ -1,4 +1,4 @@
@@ -595,6 +733,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+diff --git a/vertica_python/vertica/messages/message.py b/vertica_python/vertica/messages/message.py
+index 16d5b01..e32e9e4 100644
 --- a/vertica_python/vertica/messages/message.py
 +++ b/vertica_python/vertica/messages/message.py
 @@ -1,4 +1,4 @@
