@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 
 import re
 import logging
@@ -57,7 +57,7 @@ class Cursor(object):
                 for key in parameters:
                     param = parameters[key]
                     # Make sure adapt() behaves properly
-                    if isinstance(param, unicode):
+                    if isinstance(param, str):
                         v = adapt(param.encode('utf8')).getquoted()
                     else:
                         v = adapt(param).getquoted()
@@ -69,7 +69,7 @@ class Cursor(object):
             elif isinstance(parameters, tuple):
                 tlist = []
                 for p in parameters:
-                    if isinstance(p, unicode):
+                    if isinstance(p, str):
                         tlist.append(adapt(p.encode('utf8')).getquoted())
                     else:
                         tlist.append(adapt(p).getquoted())

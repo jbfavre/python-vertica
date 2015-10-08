@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 
 import logging
 import select
@@ -14,6 +14,7 @@ from vertica_python.vertica.messages.message import BackendMessage
 
 from vertica_python.vertica.cursor import Cursor
 from vertica_python.errors import SSLNotSupported
+import collections
 
 logger = logging.getLogger('vertica')
 
@@ -24,7 +25,7 @@ class Connection(object):
 
         options = options or {}
         self.options = dict(
-            (key, value) for key, value in options.iteritems() if value is not None
+            (key, value) for key, value in options.items() if value is not None
         )
 
         # we only support one cursor per connection
@@ -134,7 +135,7 @@ class Connection(object):
 
         is_stream = hasattr(message, "read_bytes")
 
-        if (hasattr(message, 'to_bytes') is False or callable(getattr(message, 'to_bytes')) is False) and not is_stream:
+        if (hasattr(message, 'to_bytes') is False or isinstance(getattr(message, 'to_bytes'), collections.Callable) is False) and not is_stream:
             raise TypeError("invalid message: ({0})".format(message))
 
         logger.debug('=> %s', message)
@@ -151,7 +152,7 @@ class Connection(object):
 
                     self._socket().sendall(data)
 
-        except Exception, e:
+        except Exception as e:
             self.close_socket()
             if e.message == 'unsupported authentication method: 9':
                 raise errors.ConnectionError('Error during authentication. Your password might be expired.')
@@ -221,7 +222,7 @@ class Connection(object):
 
     def __str__(self):
         safe_options = dict(
-            (key, value) for key, value in self.options.iteritems() if key != 'password'
+            (key, value) for key, value in self.options.items() if key != 'password'
         )
         s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
             id(self), self.parameters, self.backend_pid

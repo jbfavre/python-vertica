@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 
 from collections import namedtuple
 import re
@@ -81,7 +81,7 @@ def date_parse(s):
     if s.endswith(' BC'):
         raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
 
-    return date(*map(lambda x: int(x), s.split('-')))
+    return date(*[int(x) for x in s.split('-')])
 
 ColumnTuple = namedtuple(
     'Column',
@@ -165,7 +165,7 @@ class Column(object):
         return self.props.__str__()
 
     def __unicode__(self):
-        return unicode(self.props.__str__())
+        return str(self.props.__str__())
 
     def __repr__(self):
         return self.props.__str__()
