@@ -76,7 +76,7 @@ class Cursor(object):
             else:
                 raise errors.Error("Argument 'parameters' must be dict or tuple")
 
-        self.rowcount = 0
+        self.rowcount = -1
 
         self.connection.write(messages.Query(operation))
 
@@ -89,19 +89,28 @@ class Cursor(object):
                 raise errors.QueryError.from_error_response(message, operation)
             elif isinstance(message, messages.RowDescription):
                 self.description = [Column(fd) for fd in message.fields]
-            elif (isinstance(message, messages.DataRow)
-                   or isinstance(message, messages.ReadyForQuery)):
+            elif isinstance(message, messages.DataRow):
+                break
+            elif isinstance(message, messages.ReadyForQuery):
                 break
             else:
                 self.connection.process_message(message)
 
     def fetchone(self):
         if isinstance(self._message, messages.DataRow):
-            self.rowcount += 1
+            if self.rowcount == -1:
+                self.rowcount = 1
+            else:
+                self.rowcount += 1
+
             row = self.row_formatter(self._message)
             # fetch next message
             self._message = self.connection.read_message()
             return row
+        elif isinstance(self._message, messages.ReadyForQuery):
+            return None
+        elif isinstance(self._message, messages.CommandComplete):
+            return None
         else:
             self.connection.process_message(self._message)
 
@@ -127,6 +136,30 @@ class Cursor(object):
     def fetchall(self):
         return list(self.iterate())
 
+    def nextset(self):
+        # skip any data for this set if exists
+        self.flush_to_command_complete()
+
+        if self._message is None:
+            return None
+        elif isinstance(self._message, messages.CommandComplete):
+            # there might be another set, read next message to find out
+            self._message = self.connection.read_message()
+            if isinstance(self._message, messages.RowDescription):
+                # next row will be either a DataRow or CommandComplete
+                self._message = self.connection.read_message()
+                return True
+            elif isinstance(self._message, messages.ReadyForQuery):
+                return None
+            else:
+                raise errors.Error('Unexpected nextset() state after CommandComplete: ' + str(self._message))
+        elif isinstance(self._message, messages.ReadyForQuery):
+            # no more sets left to be read
+            return None
+        else:
+            raise errors.Error('Unexpected nextset() state: ' + str(self._message))
+
+
     def setinputsizes(self):
         pass
 
@@ -149,6 +182,20 @@ class Cursor(object):
                 self._message = message
                 break
 
+    def flush_to_command_complete(self):
+        # if the last message isnt empty or CommandComplete, read messages until it is
+        if(self._message is None
+           or isinstance(self._message, messages.ReadyForQuery)
+           or isinstance(self._message, messages.CommandComplete)):
+            return
+
+        while True:
+            message = self.connection.read_message()
+            if isinstance(message, messages.CommandComplete):
+                self._message = message
+                break
+
+
     # example:
     #
     # with open("/tmp/file.csv", "rb") as fs:
@@ -159,6 +206,8 @@ class Cursor(object):
 
         if self.closed():
             raise errors.Error('Cursor is closed')
+
+        self.flush_to_query_ready()
 
         self.connection.write(messages.Query(sql))
 

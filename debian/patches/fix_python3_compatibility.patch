@@ -1,4 +1,4 @@
-From c27b710dd5e2ca677e26d1cf7adf59f4f20957a6 Mon Sep 17 00:00:00 2001
+From f44b01561a3bec927ce174292f64d6240b7849fe Mon Sep 17 00:00:00 2001
 From: Jean Baptiste Favre <debian@jbfavre.org>
 Date: Thu, 8 Oct 2015 13:20:49 -0700
 Subject: remove deprecated import for python 3
@@ -56,7 +56,7 @@ Patch-Name: fix_python3_compatibility.patch
  45 files changed, 102 insertions(+), 99 deletions(-)
 
 diff --git a/vertica_python/__init__.py b/vertica_python/__init__.py
-index 63967d6..6625507 100644
+index 3177420..35c872a 100644
 --- a/vertica_python/__init__.py
 +++ b/vertica_python/__init__.py
 @@ -1,4 +1,4 @@
@@ -101,7 +101,7 @@ index 1b9f842..28bc605 100644
  
  
 diff --git a/vertica_python/tests/basic_tests.py b/vertica_python/tests/basic_tests.py
-index 5991c6c..cd3e281 100644
+index 0593e40..9627c43 100644
 --- a/vertica_python/tests/basic_tests.py
 +++ b/vertica_python/tests/basic_tests.py
 @@ -2,7 +2,7 @@ import unittest
@@ -114,18 +114,18 @@ index 5991c6c..cd3e281 100644
  import vertica_python
  from vertica_python import errors
 diff --git a/vertica_python/tests/date_tests.py b/vertica_python/tests/date_tests.py
-index 91b1a4d..ac78025 100644
+index 90e4486..4477165 100644
 --- a/vertica_python/tests/date_tests.py
 +++ b/vertica_python/tests/date_tests.py
 @@ -1,5 +1,5 @@
- from datetime import date
+ from datetime import date, datetime
 -from test_commons import *
 +from .test_commons import *
  from vertica_python import errors
- 
+ from vertica_python.vertica.column import timestamp_parse
  
 diff --git a/vertica_python/vertica/column.py b/vertica_python/vertica/column.py
-index 1c6a258..0f026ce 100644
+index 871da65..630742a 100644
 --- a/vertica_python/vertica/column.py
 +++ b/vertica_python/vertica/column.py
 @@ -1,4 +1,4 @@
@@ -133,8 +133,8 @@ index 1c6a258..0f026ce 100644
 +
  
  from collections import namedtuple
- 
-@@ -56,7 +56,7 @@ def date_parse(s):
+ import re
+@@ -81,7 +81,7 @@ def date_parse(s):
      if s.endswith(' BC'):
          raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
  
@@ -143,7 +143,7 @@ index 1c6a258..0f026ce 100644
  
  ColumnTuple = namedtuple(
      'Column',
-@@ -76,8 +76,8 @@ class Column(object):
+@@ -101,8 +101,8 @@ class Column(object):
          ('bool', lambda s: s == 't'),
          ('integer', lambda s: int(s)),
          ('float', lambda s: float(s)),
@@ -154,7 +154,7 @@ index 1c6a258..0f026ce 100644
          ('date', date_parse),
          ('time', None),
          ('timestamp', timestamp_parse),
-@@ -88,7 +88,7 @@ class Column(object):
+@@ -113,7 +113,7 @@ class Column(object):
          ('bytea', None),
          ('rle_tuple', None),
      ]
@@ -163,7 +163,7 @@ index 1c6a258..0f026ce 100644
  
      def __init__(self, col):
  
-@@ -128,7 +128,7 @@ class Column(object):
+@@ -157,7 +157,7 @@ class Column(object):
          return self.props.__str__()
  
      def __unicode__(self):
@@ -173,7 +173,7 @@ index 1c6a258..0f026ce 100644
      def __repr__(self):
          return self.props.__str__()
 diff --git a/vertica_python/vertica/connection.py b/vertica_python/vertica/connection.py
-index 846ea08..9fee670 100644
+index 8e2e12c..c257b4b 100644
 --- a/vertica_python/vertica/connection.py
 +++ b/vertica_python/vertica/connection.py
 @@ -1,4 +1,4 @@
@@ -215,9 +215,9 @@ index 846ea08..9fee670 100644
 -        except Exception, e:
 +        except Exception as e:
              self.close_socket()
-             raise errors.ConnectionError(e.message)
- 
-@@ -217,7 +218,7 @@ class Connection(object):
+             if e.message == 'unsupported authentication method: 9':
+                 raise errors.ConnectionError('Error during authentication. Your password might be expired.')
+@@ -220,7 +221,7 @@ class Connection(object):
  
      def __str__(self):
          safe_options = dict(
@@ -227,7 +227,7 @@ index 846ea08..9fee670 100644
          s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
              id(self), self.parameters, self.backend_pid
 diff --git a/vertica_python/vertica/cursor.py b/vertica_python/vertica/cursor.py
-index dc987fe..8bbcc9e 100644
+index 391c2f9..4cf916f 100644
 --- a/vertica_python/vertica/cursor.py
 +++ b/vertica_python/vertica/cursor.py
 @@ -1,4 +1,4 @@
@@ -265,9 +265,9 @@ index dc987fe..8bbcc9e 100644
              elif isinstance(message, messages.RowDescription):
 -                self.description = map(lambda fd: Column(fd), message.fields)
 +                self.description = [Column(fd) for fd in message.fields]
-             elif (isinstance(message, messages.DataRow)
-                    or isinstance(message, messages.ReadyForQuery)):
+             elif isinstance(message, messages.DataRow):
                  break
+             elif isinstance(message, messages.ReadyForQuery):
 diff --git a/vertica_python/vertica/messages/__init__.py b/vertica_python/vertica/messages/__init__.py
 index d15ed69..7168246 100644
 --- a/vertica_python/vertica/messages/__init__.py

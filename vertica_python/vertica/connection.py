@@ -32,7 +32,7 @@ class Connection(object):
         self._cursor = Cursor(self, None)
         self.options.setdefault('port', 5433)
         self.options.setdefault('read_timeout', 600)
-        self.boot_connection()
+        self.startup_connection()
 
     def __enter__(self):
         return self
@@ -153,7 +153,10 @@ class Connection(object):
 
         except Exception as e:
             self.close_socket()
-            raise errors.ConnectionError(e.message)
+            if e.message == 'unsupported authentication method: 9':
+                raise errors.ConnectionError('Error during authentication. Your password might be expired.')
+            else:
+                raise errors.ConnectionError(e.message)
 
     def close_socket(self):
         try:
@@ -164,11 +167,7 @@ class Connection(object):
 
     def reset_connection(self):
         self.close()
-        self.boot_connection()
-
-    def boot_connection(self):
         self.startup_connection()
-        self.initialize_connection()
 
     def read_message(self):
         try:
@@ -207,6 +206,10 @@ class Connection(object):
         elif isinstance(message, messages.ReadyForQuery):
             self.transaction_status = message.transaction_status
         elif isinstance(message, messages.CommandComplete):
+            # TODO: im not ever seeing this actually returned by vertica...
+            # if vertica returns a row count, set the rowcount attribute in cursor
+            #if hasattr(message, 'rows'):
+            #    self.cursor.rowcount = message.rows
             pass
         elif isinstance(message, messages.CopyInResponse):
             pass
@@ -260,12 +263,3 @@ class Connection(object):
 
             if isinstance(message, messages.ReadyForQuery):
                 break
-
-    def initialize_connection(self):
-        if self.options.get('search_path') is not None:
-            self.query("SET SEARCH_PATH TO {0}".format(self.options['search_path']))
-        if self.options.get('role') is not None:
-            self.query("SET ROLE {0}".format(self.options['role']))
-
-# if self.options.get('interruptable'):
-#            self.session_id = self.query("SELECT session_id FROM v_monitor.current_session").the_value()
