@@ -1,4 +1,4 @@
-From f44b01561a3bec927ce174292f64d6240b7849fe Mon Sep 17 00:00:00 2001
+From eb1fcf55e27f5585525dac42f07016cf41e25891 Mon Sep 17 00:00:00 2001
 From: Jean Baptiste Favre <debian@jbfavre.org>
 Date: Thu, 8 Oct 2015 13:20:49 -0700
 Subject: remove deprecated import for python 3
@@ -56,7 +56,7 @@ Patch-Name: fix_python3_compatibility.patch
  45 files changed, 102 insertions(+), 99 deletions(-)
 
 diff --git a/vertica_python/__init__.py b/vertica_python/__init__.py
-index 3177420..35c872a 100644
+index 944ea39..8e58c8e 100644
 --- a/vertica_python/__init__.py
 +++ b/vertica_python/__init__.py
 @@ -1,4 +1,4 @@
