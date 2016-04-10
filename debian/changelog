@@ -1,10 +1,11 @@
-python-vertica (0.5.6-1) UNRELEASED; urgency=medium
+python-vertica (0.5.6-1) unstable; urgency=medium
 
   [ Ondřej Nový ]
   * Fixed VCS URL (https)
 
   [ Jean Baptiste Favre ]
   * new upstream version
+  * updated python 3 compatibility patch
 
  -- Jean Baptiste Favre <debian@jbfavre.org>  Sun, 10 Apr 2016 17:53:34 +0200
 
