@@ -2,6 +2,7 @@
 
 #export DH_VERBOSE=1
 export PYBUILD_NAME=vertica
+export PYBUILD_DISABLE_python2.7=test
 
 %:
 	dh $@ --with python2,python3 --buildsystem=pybuild
