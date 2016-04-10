@@ -11,9 +11,10 @@ from vertica_python.vertica.column import Column
 logger = logging.getLogger('vertica')
 
 class Cursor(object):
-    def __init__(self, connection, cursor_type=None):
+    def __init__(self, connection, cursor_type=None, unicode_error='strict'):
         self.connection = connection
         self.cursor_type = cursor_type
+        self.unicode_error = unicode_error
         self._closed = False
         self._message = None
 
@@ -64,7 +65,7 @@ class Cursor(object):
                     # Using a regex with word boundary to correctly handle params with similar names
                     # such as :s and :start
                     match_str = u':%s\\b' % unicode(key)
-                    operation = re.sub(match_str, v.decode('utf-8'), operation, re.UNICODE)
+                    operation = re.sub(match_str, v.decode('utf-8'), operation, flags=re.UNICODE)
             elif isinstance(parameters, tuple):
                 tlist = []
                 for p in parameters:
@@ -88,7 +89,7 @@ class Cursor(object):
             if isinstance(message, messages.ErrorResponse):
                 raise errors.QueryError.from_error_response(message, operation)
             elif isinstance(message, messages.RowDescription):
-                self.description = map(lambda fd: Column(fd), message.fields)
+                self.description = map(lambda fd: Column(fd, self.unicode_error), message.fields)
             elif isinstance(message, messages.DataRow):
                 break
             elif isinstance(message, messages.ReadyForQuery):
@@ -238,13 +239,14 @@ class Cursor(object):
         return self._closed or self.connection.closed()
 
     def row_formatter(self, row_data):
-        if not self.cursor_type:
+        if self.cursor_type is None:
             return self.format_row_as_array(row_data)
-        elif self.cursor_type == 'list':
+        elif self.cursor_type in (list, 'list'):
             return self.format_row_as_array(row_data)
-        elif self.cursor_type == 'dict':
+        elif self.cursor_type in (dict, 'dict'):
             return self.format_row_as_dict(row_data)
-            # throw some error
+        else:
+            raise Exception('Unrecognized cursor_type: %r' % self.cursor_type)
 
     def format_row_as_dict(self, row_data):
         return dict(
