@@ -1,4 +1,4 @@
-From eb1fcf55e27f5585525dac42f07016cf41e25891 Mon Sep 17 00:00:00 2001
+From 1073fb22a17118aad454aedce26c510115984f1e Mon Sep 17 00:00:00 2001
 From: Jean Baptiste Favre <debian@jbfavre.org>
 Date: Thu, 8 Oct 2015 13:20:49 -0700
 Subject: remove deprecated import for python 3
@@ -13,9 +13,9 @@ Patch-Name: fix_python3_compatibility.patch
  vertica_python/errors.py                           | 10 ++--
  vertica_python/tests/basic_tests.py                |  2 +-
  vertica_python/tests/date_tests.py                 |  2 +-
- vertica_python/vertica/column.py                   | 12 ++--
+ vertica_python/vertica/column.py                   |  6 +-
  vertica_python/vertica/connection.py               | 11 ++--
- vertica_python/vertica/cursor.py                   | 10 ++--
+ vertica_python/vertica/cursor.py                   |  6 +-
  vertica_python/vertica/messages/__init__.py        | 70 +++++++++++-----------
  .../messages/backend_messages/authentication.py    |  2 +-
  .../messages/backend_messages/backend_key_data.py  |  2 +-
@@ -53,10 +53,10 @@ Patch-Name: fix_python3_compatibility.patch
  .../vertica/messages/frontend_messages/sync.py     |  2 +-
  .../messages/frontend_messages/terminate.py        |  2 +-
  vertica_python/vertica/messages/message.py         |  2 +-
- 45 files changed, 102 insertions(+), 99 deletions(-)
+ 45 files changed, 97 insertions(+), 94 deletions(-)
 
 diff --git a/vertica_python/__init__.py b/vertica_python/__init__.py
-index 944ea39..8e58c8e 100644
+index 5a7dc99..1a751da 100644
 --- a/vertica_python/__init__.py
 +++ b/vertica_python/__init__.py
 @@ -1,4 +1,4 @@
@@ -125,7 +125,7 @@ index 90e4486..4477165 100644
  from vertica_python.vertica.column import timestamp_parse
  
 diff --git a/vertica_python/vertica/column.py b/vertica_python/vertica/column.py
-index 871da65..630742a 100644
+index 7dd4df5..52e3e55 100644
 --- a/vertica_python/vertica/column.py
 +++ b/vertica_python/vertica/column.py
 @@ -1,4 +1,4 @@
@@ -143,27 +143,7 @@ index 871da65..630742a 100644
  
  ColumnTuple = namedtuple(
      'Column',
-@@ -101,8 +101,8 @@ class Column(object):
-         ('bool', lambda s: s == 't'),
-         ('integer', lambda s: int(s)),
-         ('float', lambda s: float(s)),
--        ('char', lambda s: unicode(s, 'utf-8')),
--        ('varchar', lambda s: unicode(s, 'utf-8')),
-+        ('char', lambda s: str(s, 'utf-8')),
-+        ('varchar', lambda s: str(s, 'utf-8')),
-         ('date', date_parse),
-         ('time', None),
-         ('timestamp', timestamp_parse),
-@@ -113,7 +113,7 @@ class Column(object):
-         ('bytea', None),
-         ('rle_tuple', None),
-     ]
--    DATA_TYPES = map(lambda x: x[0], DATA_TYPE_CONVERSIONS)
-+    DATA_TYPES = [x[0] for x in DATA_TYPE_CONVERSIONS]
- 
-     def __init__(self, col):
- 
-@@ -157,7 +157,7 @@ class Column(object):
+@@ -165,7 +165,7 @@ class Column(object):
          return self.props.__str__()
  
      def __unicode__(self):
@@ -173,7 +153,7 @@ index 871da65..630742a 100644
      def __repr__(self):
          return self.props.__str__()
 diff --git a/vertica_python/vertica/connection.py b/vertica_python/vertica/connection.py
-index 8e2e12c..c257b4b 100644
+index 8bc9a1e..7176f48 100644
 --- a/vertica_python/vertica/connection.py
 +++ b/vertica_python/vertica/connection.py
 @@ -1,4 +1,4 @@
@@ -199,7 +179,7 @@ index 8e2e12c..c257b4b 100644
          )
  
          # we only support one cursor per connection
-@@ -133,7 +134,7 @@ class Connection(object):
+@@ -134,7 +135,7 @@ class Connection(object):
  
          is_stream = hasattr(message, "read_bytes")
  
@@ -208,7 +188,7 @@ index 8e2e12c..c257b4b 100644
              raise TypeError("invalid message: ({0})".format(message))
  
          logger.debug('=> %s', message)
-@@ -150,7 +151,7 @@ class Connection(object):
+@@ -151,7 +152,7 @@ class Connection(object):
  
                      self._socket().sendall(data)
  
@@ -217,7 +197,7 @@ index 8e2e12c..c257b4b 100644
              self.close_socket()
              if e.message == 'unsupported authentication method: 9':
                  raise errors.ConnectionError('Error during authentication. Your password might be expired.')
-@@ -220,7 +221,7 @@ class Connection(object):
+@@ -221,7 +222,7 @@ class Connection(object):
  
      def __str__(self):
          safe_options = dict(
@@ -227,7 +207,7 @@ index 8e2e12c..c257b4b 100644
          s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
              id(self), self.parameters, self.backend_pid
 diff --git a/vertica_python/vertica/cursor.py b/vertica_python/vertica/cursor.py
-index 391c2f9..4cf916f 100644
+index 4389951..c4a0381 100644
 --- a/vertica_python/vertica/cursor.py
 +++ b/vertica_python/vertica/cursor.py
 @@ -1,4 +1,4 @@
@@ -236,7 +216,7 @@ index 391c2f9..4cf916f 100644
  
  import re
  import logging
-@@ -56,19 +56,19 @@ class Cursor(object):
+@@ -57,7 +57,7 @@ class Cursor(object):
                  for key in parameters:
                      param = parameters[key]
                      # Make sure adapt() behaves properly
@@ -245,12 +225,7 @@ index 391c2f9..4cf916f 100644
                          v = adapt(param.encode('utf8')).getquoted()
                      else:
                          v = adapt(param).getquoted()
- 
-                     # Using a regex with word boundary to correctly handle params with similar names
-                     # such as :s and :start
--                    match_str = u':%s\\b' % unicode(key)
-+                    match_str = ':%s\\b' % str(key)
-                     operation = re.sub(match_str, v.decode('utf-8'), operation, re.UNICODE)
+@@ -69,7 +69,7 @@ class Cursor(object):
              elif isinstance(parameters, tuple):
                  tlist = []
                  for p in parameters:
@@ -259,15 +234,6 @@ index 391c2f9..4cf916f 100644
                          tlist.append(adapt(p.encode('utf8')).getquoted())
                      else:
                          tlist.append(adapt(p).getquoted())
-@@ -88,7 +88,7 @@ class Cursor(object):
-             if isinstance(message, messages.ErrorResponse):
-                 raise errors.QueryError.from_error_response(message, operation)
-             elif isinstance(message, messages.RowDescription):
--                self.description = map(lambda fd: Column(fd), message.fields)
-+                self.description = [Column(fd) for fd in message.fields]
-             elif isinstance(message, messages.DataRow):
-                 break
-             elif isinstance(message, messages.ReadyForQuery):
 diff --git a/vertica_python/vertica/messages/__init__.py b/vertica_python/vertica/messages/__init__.py
 index d15ed69..7168246 100644
 --- a/vertica_python/vertica/messages/__init__.py
@@ -467,7 +433,7 @@ index e0dc35c..4916fef 100644
  import string
  
 diff --git a/vertica_python/vertica/messages/backend_messages/parameter_description.py b/vertica_python/vertica/messages/backend_messages/parameter_description.py
-index 90bc79b..9a5dbfb 100644
+index 0c0b9fb..d5ddac9 100644
 --- a/vertica_python/vertica/messages/backend_messages/parameter_description.py
 +++ b/vertica_python/vertica/messages/backend_messages/parameter_description.py
 @@ -1,4 +1,4 @@
