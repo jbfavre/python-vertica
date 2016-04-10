@@ -1,59 +1,56 @@
-From 1073fb22a17118aad454aedce26c510115984f1e Mon Sep 17 00:00:00 2001
-From: Jean Baptiste Favre <debian@jbfavre.org>
-Date: Thu, 8 Oct 2015 13:20:49 -0700
-Subject: remove deprecated import for python 3
+From 4bd817c41fbba2c3383ef26dc1439e145884ab0a Mon Sep 17 00:00:00 2001
+From: Jean Baptiste Favre <github@jbfavre.org>
+Date: Sun, 10 Apr 2016 17:49:01 +0200
+Subject: Update python 3 compatibility patch
 
-Origin: other
-Reviewed-by: Jean Baptiste Favre <debian@jbfavre.org>
-Last-Update: 2015-08-16
-Patch-Name: fix_python3_compatibility.patch
 ---
  vertica_python/__init__.py                         |  2 +-
  vertica_python/datatypes.py                        |  2 +-
- vertica_python/errors.py                           | 10 ++--
- vertica_python/tests/basic_tests.py                |  2 +-
+ vertica_python/errors.py                           | 28 +++++----
+ vertica_python/tests/basic_tests.py                |  4 +-
  vertica_python/tests/date_tests.py                 |  2 +-
- vertica_python/vertica/column.py                   |  6 +-
- vertica_python/vertica/connection.py               | 11 ++--
- vertica_python/vertica/cursor.py                   |  6 +-
+ vertica_python/tests/unicode_tests.py              | 11 ++++
+ vertica_python/vertica/column.py                   | 15 ++---
+ vertica_python/vertica/connection.py               | 35 ++++++-----
+ vertica_python/vertica/cursor.py                   | 14 +++--
  vertica_python/vertica/messages/__init__.py        | 70 +++++++++++-----------
- .../messages/backend_messages/authentication.py    |  2 +-
- .../messages/backend_messages/backend_key_data.py  |  2 +-
- .../messages/backend_messages/bind_complete.py     |  2 +-
- .../messages/backend_messages/close_complete.py    |  2 +-
- .../messages/backend_messages/command_complete.py  |  2 +-
- .../messages/backend_messages/copy_in_response.py  |  2 +-
- .../vertica/messages/backend_messages/data_row.py  |  4 +-
- .../backend_messages/empty_query_response.py       |  2 +-
- .../messages/backend_messages/error_response.py    |  2 +-
- .../vertica/messages/backend_messages/no_data.py   |  2 +-
- .../messages/backend_messages/notice_response.py   |  2 +-
- .../backend_messages/parameter_description.py      |  2 +-
- .../messages/backend_messages/parameter_status.py  |  2 +-
- .../messages/backend_messages/parse_complete.py    |  2 +-
- .../messages/backend_messages/portal_suspended.py  |  2 +-
- .../messages/backend_messages/ready_for_query.py   |  2 +-
- .../messages/backend_messages/row_description.py   |  4 +-
+ .../messages/backend_messages/authentication.py    |  4 +-
+ .../messages/backend_messages/backend_key_data.py  |  4 +-
+ .../messages/backend_messages/bind_complete.py     |  4 +-
+ .../messages/backend_messages/close_complete.py    |  4 +-
+ .../messages/backend_messages/command_complete.py  | 12 ++--
+ .../messages/backend_messages/copy_in_response.py  |  6 +-
+ .../vertica/messages/backend_messages/data_row.py  |  7 ++-
+ .../backend_messages/empty_query_response.py       |  4 +-
+ .../messages/backend_messages/error_response.py    |  4 +-
+ .../vertica/messages/backend_messages/no_data.py   |  4 +-
+ .../messages/backend_messages/notice_response.py   | 30 +++++-----
+ .../backend_messages/parameter_description.py      |  4 +-
+ .../messages/backend_messages/parameter_status.py  |  6 +-
+ .../messages/backend_messages/parse_complete.py    |  4 +-
+ .../messages/backend_messages/portal_suspended.py  |  4 +-
+ .../messages/backend_messages/ready_for_query.py   | 10 ++--
+ .../messages/backend_messages/row_description.py   |  8 +--
  .../vertica/messages/backend_messages/unknown.py   |  2 +-
- .../vertica/messages/frontend_messages/bind.py     |  4 +-
+ .../vertica/messages/frontend_messages/bind.py     | 14 ++---
  .../messages/frontend_messages/cancel_request.py   |  2 +-
- .../vertica/messages/frontend_messages/close.py    |  2 +-
- .../messages/frontend_messages/copy_data.py        |  2 +-
- .../messages/frontend_messages/copy_done.py        |  2 +-
- .../messages/frontend_messages/copy_fail.py        |  2 +-
- .../messages/frontend_messages/copy_stream.py      |  2 +-
- .../vertica/messages/frontend_messages/describe.py |  2 +-
- .../vertica/messages/frontend_messages/execute.py  |  2 +-
- .../vertica/messages/frontend_messages/flush.py    |  2 +-
- .../vertica/messages/frontend_messages/parse.py    |  2 +-
- .../vertica/messages/frontend_messages/password.py |  2 +-
- .../vertica/messages/frontend_messages/query.py    |  4 +-
+ .../vertica/messages/frontend_messages/close.py    |  4 +-
+ .../messages/frontend_messages/copy_data.py        |  4 +-
+ .../messages/frontend_messages/copy_done.py        |  4 +-
+ .../messages/frontend_messages/copy_fail.py        |  4 +-
+ .../messages/frontend_messages/copy_stream.py      |  4 +-
+ .../vertica/messages/frontend_messages/describe.py |  4 +-
+ .../vertica/messages/frontend_messages/execute.py  |  4 +-
+ .../vertica/messages/frontend_messages/flush.py    |  4 +-
+ .../vertica/messages/frontend_messages/parse.py    |  4 +-
+ .../vertica/messages/frontend_messages/password.py |  4 +-
+ .../vertica/messages/frontend_messages/query.py    |  9 +--
  .../messages/frontend_messages/ssl_request.py      |  2 +-
- .../vertica/messages/frontend_messages/startup.py  |  2 +-
- .../vertica/messages/frontend_messages/sync.py     |  2 +-
- .../messages/frontend_messages/terminate.py        |  2 +-
- vertica_python/vertica/messages/message.py         |  2 +-
- 45 files changed, 97 insertions(+), 94 deletions(-)
+ .../vertica/messages/frontend_messages/startup.py  |  8 +--
+ .../vertica/messages/frontend_messages/sync.py     |  4 +-
+ .../messages/frontend_messages/terminate.py        |  4 +-
+ vertica_python/vertica/messages/message.py         | 14 ++---
+ 46 files changed, 205 insertions(+), 196 deletions(-)
 
 diff --git a/vertica_python/__init__.py b/vertica_python/__init__.py
 index 5a7dc99..1a751da 100644
@@ -76,7 +73,7 @@ index c459295..89fe296 100644
  from datetime import datetime
  from datetime import timedelta
 diff --git a/vertica_python/errors.py b/vertica_python/errors.py
-index 1b9f842..28bc605 100644
+index 1b9f842..08ae256 100644
 --- a/vertica_python/errors.py
 +++ b/vertica_python/errors.py
 @@ -1,14 +1,16 @@
@@ -100,8 +97,31 @@ index 1b9f842..28bc605 100644
      pass
  
  
+@@ -128,13 +130,13 @@ class InvalidDatetimeFormat(QueryError):
+ 
+ 
+ QUERY_ERROR_CLASSES = {
+-    '55V03': LockFailure,
+-    '53000': InsufficientResources,
+-    '53200': OutOfMemory,
+-    '42601': VerticaSyntaxError,
+-    '42V01': MissingRelation,
+-    '42703': MissingColumn,
+-    '22V04': CopyRejected,
+-    '42501': PermissionDenied,
+-    '22007': InvalidDatetimeFormat
++    b'55V03': LockFailure,
++    b'53000': InsufficientResources,
++    b'53200': OutOfMemory,
++    b'42601': VerticaSyntaxError,
++    b'42V01': MissingRelation,
++    b'42703': MissingColumn,
++    b'22V04': CopyRejected,
++    b'42501': PermissionDenied,
++    b'22007': InvalidDatetimeFormat
+ }
 diff --git a/vertica_python/tests/basic_tests.py b/vertica_python/tests/basic_tests.py
-index 0593e40..9627c43 100644
+index 0593e40..dbc72de 100644
 --- a/vertica_python/tests/basic_tests.py
 +++ b/vertica_python/tests/basic_tests.py
 @@ -2,7 +2,7 @@ import unittest
@@ -113,6 +133,15 @@ index 0593e40..9627c43 100644
  
  import vertica_python
  from vertica_python import errors
+@@ -184,7 +184,7 @@ class TestVerticaPython(unittest.TestCase):
+         cur2 = conn.cursor()
+     
+         f = tempfile.TemporaryFile()
+-        f.write("1,foo\n2,bar")
++        f.write(b"1,foo\n2,bar")
+         # move rw pointer to top of file
+         f.seek(0)
+         cur.copy(""" COPY vertica_python_unit_test (a, b) from stdin DELIMITER ',' """,  f)
 diff --git a/vertica_python/tests/date_tests.py b/vertica_python/tests/date_tests.py
 index 90e4486..4477165 100644
 --- a/vertica_python/tests/date_tests.py
@@ -124,26 +153,69 @@ index 90e4486..4477165 100644
  from vertica_python import errors
  from vertica_python.vertica.column import timestamp_parse
  
+diff --git a/vertica_python/tests/unicode_tests.py b/vertica_python/tests/unicode_tests.py
+index 42a5bc6..5fe9907 100644
+--- a/vertica_python/tests/unicode_tests.py
++++ b/vertica_python/tests/unicode_tests.py
+@@ -3,6 +3,17 @@ from .. import connect
+ 
+ 
+ class UnicodeTestCase(VerticaTestCase):
++    def test_unicode_query(self):
++        value = u'\u16a0'
++        query = u"SELECT '%s'" % value
++
++        with connect(**conn_info) as conn:
++            cur = conn.cursor()
++            cur.execute(query)
++            res = cur.fetchone()
++
++            assert res[0] == value
++
+     def test_unicode_named_parameter_binding(self):
+         key = u'\u16a0'
+         value = 1
 diff --git a/vertica_python/vertica/column.py b/vertica_python/vertica/column.py
-index 7dd4df5..52e3e55 100644
+index 7dd4df5..91c41dd 100644
 --- a/vertica_python/vertica/column.py
 +++ b/vertica_python/vertica/column.py
-@@ -1,4 +1,4 @@
+@@ -1,8 +1,9 @@
 -from __future__ import absolute_import
 +
  
  from collections import namedtuple
  import re
-@@ -81,7 +81,7 @@ def date_parse(s):
-     if s.endswith(' BC'):
-         raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
+ 
++from builtins import str
+ from decimal import Decimal
+ from datetime import date
+ from datetime import datetime
+@@ -78,10 +79,10 @@ def date_parse(s):
+     :return: an instance of datetime.date
+     :raises NotSupportedError when a date Before Christ is encountered
+     """
+-    if s.endswith(' BC'):
+-        raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
++    if s.endswith(b' BC'):
++        raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + str(s, 'utf-8'))
  
 -    return date(*map(lambda x: int(x), s.split('-')))
-+    return date(*[int(x) for x in s.split('-')])
++    return date(*map(lambda x: int(x), s.split(b'-')))
  
  ColumnTuple = namedtuple(
      'Column',
-@@ -165,7 +165,7 @@ class Column(object):
+@@ -105,8 +106,8 @@ class Column(object):
+             ('bool', lambda s: s == 't'),
+             ('integer', lambda s: int(s)),
+             ('float', lambda s: float(s)),
+-            ('char', lambda s: unicode(s, 'utf-8', unicode_error)),
+-            ('varchar', lambda s: unicode(s, 'utf-8', unicode_error)),
++            ('char', lambda s: str(s, 'utf-8', unicode_error)),
++            ('varchar', lambda s: str(s, 'utf-8', unicode_error)),
+             ('date', date_parse),
+             ('time', None),
+             ('timestamp', timestamp_parse),
+@@ -165,7 +166,7 @@ class Column(object):
          return self.props.__str__()
  
      def __unicode__(self):
@@ -153,7 +225,7 @@ index 7dd4df5..52e3e55 100644
      def __repr__(self):
          return self.props.__str__()
 diff --git a/vertica_python/vertica/connection.py b/vertica_python/vertica/connection.py
-index 8bc9a1e..7176f48 100644
+index 8bc9a1e..ddbdaf4 100644
 --- a/vertica_python/vertica/connection.py
 +++ b/vertica_python/vertica/connection.py
 @@ -1,4 +1,4 @@
@@ -162,7 +234,16 @@ index 8bc9a1e..7176f48 100644
  
  import logging
  import select
-@@ -14,6 +14,7 @@ from vertica_python.vertica.messages.message import BackendMessage
+@@ -7,6 +7,8 @@ import ssl
+ 
+ from struct import unpack
+ 
++from builtins import str
++
+ import vertica_python.errors as errors
+ import vertica_python.vertica.messages as messages
+ 
+@@ -14,6 +16,7 @@ from vertica_python.vertica.messages.message import BackendMessage
  
  from vertica_python.vertica.cursor import Cursor
  from vertica_python.errors import SSLNotSupported
@@ -170,7 +251,7 @@ index 8bc9a1e..7176f48 100644
  
  logger = logging.getLogger('vertica')
  
-@@ -24,7 +25,7 @@ class Connection(object):
+@@ -24,7 +27,7 @@ class Connection(object):
  
          options = options or {}
          self.options = dict(
@@ -179,7 +260,23 @@ index 8bc9a1e..7176f48 100644
          )
  
          # we only support one cursor per connection
-@@ -134,7 +135,7 @@ class Connection(object):
+@@ -37,13 +40,13 @@ class Connection(object):
+     def __enter__(self):
+         return self
+ 
+-    def __exit__(self, type, value, traceback):
++    def __exit__(self, type_, value, traceback):
+         try:
+             # if there's no outstanding transaction, we can simply close the connection
+             if self.transaction_status in (None, 'in_transaction'):
+                 return
+ 
+-            if type is not None:
++            if type_ is not None:
+                 self.rollback()
+             else:
+                 self.commit()
+@@ -134,7 +137,7 @@ class Connection(object):
  
          is_stream = hasattr(message, "read_bytes")
  
@@ -188,16 +285,49 @@ index 8bc9a1e..7176f48 100644
              raise TypeError("invalid message: ({0})".format(message))
  
          logger.debug('=> %s', message)
-@@ -151,7 +152,7 @@ class Connection(object):
+@@ -151,12 +154,12 @@ class Connection(object):
  
                      self._socket().sendall(data)
  
 -        except Exception, e:
 +        except Exception as e:
              self.close_socket()
-             if e.message == 'unsupported authentication method: 9':
+-            if e.message == 'unsupported authentication method: 9':
++            if str(e) == 'unsupported authentication method: 9':
                  raise errors.ConnectionError('Error during authentication. Your password might be expired.')
-@@ -221,7 +222,7 @@ class Connection(object):
+             else:
+-                raise errors.ConnectionError(e.message)
++                raise errors.ConnectionError(str(e))
+ 
+     def close_socket(self):
+         try:
+@@ -173,14 +176,14 @@ class Connection(object):
+         try:
+             ready = select.select([self._socket()], [], [], self.options['read_timeout'])
+             if len(ready[0]) > 0:
+-                type = self.read_bytes(1)
++                type_ = self.read_bytes(1)
+                 size = unpack('!I', self.read_bytes(4))[0]
+ 
+                 if size < 4:
+                     raise errors.MessageError(
+                         "Bad message size: {0}".format(size)
+                     )
+-                message = BackendMessage.factory(type, self.read_bytes(size - 4))
++                message = BackendMessage.factory(type_, self.read_bytes(size - 4))
+                 logger.debug('<= %s', message)
+                 return message
+             else:
+@@ -190,7 +193,7 @@ class Connection(object):
+             raise
+         except Exception as e:
+             self.close_socket()
+-            raise errors.ConnectionError(e.message)
++            raise errors.ConnectionError(str(e))
+ 
+     def process_message(self, message):
+         if isinstance(message, messages.ErrorResponse):
+@@ -221,7 +224,7 @@ class Connection(object):
  
      def __str__(self):
          safe_options = dict(
@@ -206,17 +336,49 @@ index 8bc9a1e..7176f48 100644
          )
          s1 = "<Vertica.Connection:{0} parameters={1} backend_pid={2}, ".format(
              id(self), self.parameters, self.backend_pid
+@@ -233,12 +236,12 @@ class Connection(object):
+         return s1 + s2
+ 
+     def read_bytes(self, n):
+-        results = ''
++        results = bytes()
+         while len(results) < n:
+-            bytes = self._socket().recv(n - len(results))
+-            if not bytes:
++            bytes_ = self._socket().recv(n - len(results))
++            if not bytes_:
+                 raise errors.ConnectionError("Connection closed by Vertica")
+-            results = results + bytes
++            results = results + bytes_
+         return results
+ 
+     def startup_connection(self):
 diff --git a/vertica_python/vertica/cursor.py b/vertica_python/vertica/cursor.py
-index 4389951..c4a0381 100644
+index 4389951..e26d3c1 100644
 --- a/vertica_python/vertica/cursor.py
 +++ b/vertica_python/vertica/cursor.py
-@@ -1,4 +1,4 @@
+@@ -1,8 +1,10 @@
 -from __future__ import absolute_import
 +
  
  import re
  import logging
-@@ -57,7 +57,7 @@ class Cursor(object):
+ 
++from builtins import str
++
+ import vertica_python.errors as errors
+ 
+ import vertica_python.vertica.messages as messages
+@@ -30,7 +32,7 @@ class Cursor(object):
+     def __enter__(self):
+         return self
+ 
+-    def __exit__(self, type, value, traceback):
++    def __exit__(self, type_, value, traceback):
+         self.close()
+ 
+     #
+@@ -57,19 +59,19 @@ class Cursor(object):
                  for key in parameters:
                      param = parameters[key]
                      # Make sure adapt() behaves properly
@@ -225,7 +387,12 @@ index 4389951..c4a0381 100644
                          v = adapt(param.encode('utf8')).getquoted()
                      else:
                          v = adapt(param).getquoted()
-@@ -69,7 +69,7 @@ class Cursor(object):
+ 
+                     # Using a regex with word boundary to correctly handle params with similar names
+                     # such as :s and :start
+-                    match_str = u':%s\\b' % unicode(key)
++                    match_str = u':%s\\b' % str(key)
+                     operation = re.sub(match_str, v.decode('utf-8'), operation, flags=re.UNICODE)
              elif isinstance(parameters, tuple):
                  tlist = []
                  for p in parameters:
@@ -234,6 +401,15 @@ index 4389951..c4a0381 100644
                          tlist.append(adapt(p.encode('utf8')).getquoted())
                      else:
                          tlist.append(adapt(p).getquoted())
+@@ -89,7 +91,7 @@ class Cursor(object):
+             if isinstance(message, messages.ErrorResponse):
+                 raise errors.QueryError.from_error_response(message, operation)
+             elif isinstance(message, messages.RowDescription):
+-                self.description = map(lambda fd: Column(fd, self.unicode_error), message.fields)
++                self.description = list(map(lambda fd: Column(fd, self.unicode_error), message.fields))
+             elif isinstance(message, messages.DataRow):
+                 break
+             elif isinstance(message, messages.ReadyForQuery):
 diff --git a/vertica_python/vertica/messages/__init__.py b/vertica_python/vertica/messages/__init__.py
 index d15ed69..7168246 100644
 --- a/vertica_python/vertica/messages/__init__.py
@@ -314,7 +490,7 @@ index d15ed69..7168246 100644
  __all__ = ["Authentication", "BackendKeyData", "BindComplete", "CloseComplete", "CommandComplete",
             "CopyInResponse", "DataRow", "EmptyQueryResponse", "ErrorResponse", "NoData", "NoticeResponse",
 diff --git a/vertica_python/vertica/messages/backend_messages/authentication.py b/vertica_python/vertica/messages/backend_messages/authentication.py
-index 54add1a..6575207 100644
+index 54add1a..3e0a93e 100644
 --- a/vertica_python/vertica/messages/backend_messages/authentication.py
 +++ b/vertica_python/vertica/messages/backend_messages/authentication.py
 @@ -1,4 +1,4 @@
@@ -323,8 +499,14 @@ index 54add1a..6575207 100644
  
  from struct import unpack
  
+@@ -27,4 +27,4 @@ class Authentication(BackendMessage):
+             self.auth_data = other
+ 
+ 
+-Authentication._message_id('R')
++Authentication._message_id(b'R')
 diff --git a/vertica_python/vertica/messages/backend_messages/backend_key_data.py b/vertica_python/vertica/messages/backend_messages/backend_key_data.py
-index 317d450..ce1ce52 100644
+index 317d450..d2f8316 100644
 --- a/vertica_python/vertica/messages/backend_messages/backend_key_data.py
 +++ b/vertica_python/vertica/messages/backend_messages/backend_key_data.py
 @@ -1,4 +1,4 @@
@@ -333,8 +515,14 @@ index 317d450..ce1ce52 100644
  
  from struct import unpack
  
+@@ -13,4 +13,4 @@ class BackendKeyData(BackendMessage):
+         self.key = unpacked[1]
+ 
+ 
+-BackendKeyData._message_id('K')
++BackendKeyData._message_id(b'K')
 diff --git a/vertica_python/vertica/messages/backend_messages/bind_complete.py b/vertica_python/vertica/messages/backend_messages/bind_complete.py
-index 5d25e1d..e2510da 100644
+index 5d25e1d..12c352a 100644
 --- a/vertica_python/vertica/messages/backend_messages/bind_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/bind_complete.py
 @@ -1,4 +1,4 @@
@@ -343,8 +531,14 @@ index 5d25e1d..e2510da 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+@@ -7,4 +7,4 @@ class BindComplete(BackendMessage):
+     pass
+ 
+ 
+-BindComplete._message_id('2')
++BindComplete._message_id(b'2')
 diff --git a/vertica_python/vertica/messages/backend_messages/close_complete.py b/vertica_python/vertica/messages/backend_messages/close_complete.py
-index fea59dd..bf138c1 100644
+index fea59dd..4ff7ddf 100644
 --- a/vertica_python/vertica/messages/backend_messages/close_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/close_complete.py
 @@ -1,4 +1,4 @@
@@ -353,8 +547,14 @@ index fea59dd..bf138c1 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+@@ -7,4 +7,4 @@ class CloseComplete(BackendMessage):
+     pass
+ 
+ 
+-CloseComplete._message_id('3')
++CloseComplete._message_id(b'3')
 diff --git a/vertica_python/vertica/messages/backend_messages/command_complete.py b/vertica_python/vertica/messages/backend_messages/command_complete.py
-index 92873f2..ab0be2c 100644
+index 92873f2..802577c 100644
 --- a/vertica_python/vertica/messages/backend_messages/command_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/command_complete.py
 @@ -1,4 +1,4 @@
@@ -363,8 +563,34 @@ index 92873f2..ab0be2c 100644
  
  import re
  
+@@ -13,15 +13,15 @@ class CommandComplete(BackendMessage):
+ 
+         data = unpack('{0}sx'.format(len(data) - 1), data)[0]
+ 
+-        if re.match("INSERT", data) is not None:
+-            splitstr = data.split(' ', 3)
++        if re.match(b"INSERT", data) is not None:
++            splitstr = data.split(b' ', 3)
+             self.tag = splitstr[0]
+             if len(splitstr) >= 2:
+                 self.oid = int(splitstr[1])
+             if len(splitstr) >= 3:
+                 self.rows = int(splitstr[2])
+-        elif re.match("(DELETE|UPDATE|MOVE|FETCH|COPY)", data) is not None:
+-            splitstr = data.split(' ', 2)
++        elif re.match(b"(DELETE|UPDATE|MOVE|FETCH|COPY)", data) is not None:
++            splitstr = data.split(b' ', 2)
+             self.tag = splitstr[0]
+             if len(splitstr) >= 2:
+                 self.rows = int(splitstr[1])
+@@ -29,4 +29,4 @@ class CommandComplete(BackendMessage):
+             self.tag = data
+ 
+ 
+-CommandComplete._message_id('C')
++CommandComplete._message_id(b'C')
 diff --git a/vertica_python/vertica/messages/backend_messages/copy_in_response.py b/vertica_python/vertica/messages/backend_messages/copy_in_response.py
-index 1566035..78ea2ca 100644
+index 1566035..71c2bc2 100644
 --- a/vertica_python/vertica/messages/backend_messages/copy_in_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/copy_in_response.py
 @@ -1,4 +1,4 @@
@@ -373,17 +599,31 @@ index 1566035..78ea2ca 100644
  
  from struct import unpack
  
+@@ -8,9 +8,9 @@ from vertica_python.vertica.messages.message import BackendMessage
+ class CopyInResponse(BackendMessage):
+ 
+     def __init__(self, data):
+-        values = unpack('!B{0}H'.format((len(data) - 1)/2), data)
++        values = unpack('!B{0}H'.format((len(data) - 1)//2), data)
+         self.format = values[0]
+         self.column_formats = values[2::]
+ 
+ 
+-CopyInResponse._message_id('G')
++CopyInResponse._message_id(b'G')
 diff --git a/vertica_python/vertica/messages/backend_messages/data_row.py b/vertica_python/vertica/messages/backend_messages/data_row.py
-index 52eec1a..163b19d 100644
+index 52eec1a..8c7fbc5 100644
 --- a/vertica_python/vertica/messages/backend_messages/data_row.py
 +++ b/vertica_python/vertica/messages/backend_messages/data_row.py
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,6 @@
 -from __future__ import absolute_import
-+
  
++
++from builtins import range
  from struct import unpack, unpack_from
  
-@@ -12,7 +12,7 @@ class DataRow(BackendMessage):
+ from vertica_python.vertica.messages.message import BackendMessage
+@@ -12,7 +13,7 @@ class DataRow(BackendMessage):
          field_count = unpack('!H', data[0:2])[0]
          pos = 2
  
@@ -392,8 +632,14 @@ index 52eec1a..163b19d 100644
              size = unpack_from('!I', data, pos)[0]
  
              if size == 4294967295:
+@@ -25,4 +26,4 @@ class DataRow(BackendMessage):
+             pos += (4 + max(size, 0))
+ 
+ 
+-DataRow._message_id('D')
++DataRow._message_id(b'D')
 diff --git a/vertica_python/vertica/messages/backend_messages/empty_query_response.py b/vertica_python/vertica/messages/backend_messages/empty_query_response.py
-index fbe68aa..3ba6a7d 100644
+index fbe68aa..9b3eb20 100644
 --- a/vertica_python/vertica/messages/backend_messages/empty_query_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/empty_query_response.py
 @@ -1,4 +1,4 @@
@@ -402,8 +648,14 @@ index fbe68aa..3ba6a7d 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+@@ -7,4 +7,4 @@ class EmptyQueryResponse(BackendMessage):
+     pass
+ 
+ 
+-EmptyQueryResponse._message_id('I')
++EmptyQueryResponse._message_id(b'I')
 diff --git a/vertica_python/vertica/messages/backend_messages/error_response.py b/vertica_python/vertica/messages/backend_messages/error_response.py
-index 471c16e..5ad1065 100644
+index 471c16e..cf03e2a 100644
 --- a/vertica_python/vertica/messages/backend_messages/error_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/error_response.py
 @@ -1,4 +1,4 @@
@@ -412,8 +664,14 @@ index 471c16e..5ad1065 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  from vertica_python.vertica.messages.backend_messages.notice_response import NoticeResponse
+@@ -8,4 +8,4 @@ class ErrorResponse(NoticeResponse, BackendMessage):
+     pass
+ 
+ 
+-ErrorResponse._message_id('E')
++ErrorResponse._message_id(b'E')
 diff --git a/vertica_python/vertica/messages/backend_messages/no_data.py b/vertica_python/vertica/messages/backend_messages/no_data.py
-index b9c3c7c..cb4030d 100644
+index b9c3c7c..78086ff 100644
 --- a/vertica_python/vertica/messages/backend_messages/no_data.py
 +++ b/vertica_python/vertica/messages/backend_messages/no_data.py
 @@ -1,4 +1,4 @@
@@ -422,18 +680,71 @@ index b9c3c7c..cb4030d 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+@@ -7,4 +7,4 @@ class NoData(BackendMessage):
+     pass
+ 
+ 
+-NoData._message_id('n')
++NoData._message_id(b'n')
 diff --git a/vertica_python/vertica/messages/backend_messages/notice_response.py b/vertica_python/vertica/messages/backend_messages/notice_response.py
-index e0dc35c..4916fef 100644
+index e0dc35c..fadf7ff 100644
 --- a/vertica_python/vertica/messages/backend_messages/notice_response.py
 +++ b/vertica_python/vertica/messages/backend_messages/notice_response.py
-@@ -1,4 +1,4 @@
+@@ -1,6 +1,4 @@
 -from __future__ import absolute_import
-+
  
- import string
+-import string
  
+ from struct import unpack_from
+ 
+@@ -10,18 +8,18 @@ from vertica_python.vertica.messages.message import BackendMessage
+ class NoticeResponse(BackendMessage):
+ 
+     FIELDS_DEFINITIONS = [
+-        {'type': 'q', 'name': "Internal Query", 'method': 'internal_query'},
+-        {'type': 'S', 'name': "Severity", 'method': 'severity'},
+-        {'type': 'M', 'name': "Message", 'method': 'message'},
+-        {'type': 'C', 'name': "Sqlstate", 'method': 'sqlstate'},
+-        {'type': 'D', 'name': "Detail", 'method': 'detail'},
+-        {'type': 'H', 'name': "Hint", 'method': 'hint'},
+-        {'type': 'P', 'name': "Position", 'method': 'position'},
+-        {'type': 'W', 'name': "Where", 'method': 'where'},
+-        {'type': 'p', 'name': "Internal Position", 'method': 'internal_position'},
+-        {'type': 'R', 'name': "Routine", 'method': 'routine'},
+-        {'type': 'F', 'name': "File", 'method': 'file'},
+-        {'type': 'L', 'name': "Line", 'method': 'line'}
++        {'type': b'q', 'name': "Internal Query", 'method': 'internal_query'},
++        {'type': b'S', 'name': "Severity", 'method': 'severity'},
++        {'type': b'M', 'name': "Message", 'method': 'message'},
++        {'type': b'C', 'name': "Sqlstate", 'method': 'sqlstate'},
++        {'type': b'D', 'name': "Detail", 'method': 'detail'},
++        {'type': b'H', 'name': "Hint", 'method': 'hint'},
++        {'type': b'P', 'name': "Position", 'method': 'position'},
++        {'type': b'W', 'name': "Where", 'method': 'where'},
++        {'type': b'p', 'name': "Internal Position", 'method': 'internal_position'},
++        {'type': b'R', 'name': "Routine", 'method': 'routine'},
++        {'type': b'F', 'name': "File", 'method': 'file'},
++        {'type': b'L', 'name': "Line", 'method': 'line'}
+     ]
+ 
+     def FIELDS(self):
+@@ -35,7 +33,7 @@ class NoticeResponse(BackendMessage):
+ 
+         pos = 0
+         while pos < len(data) - 1:
+-            null_byte = string.find(data, '\x00', pos)
++            null_byte = data.find(b'\x00', pos)
+ 
+             # This will probably work
+             unpacked = unpack_from('c{0}sx'.format(null_byte - 1 - pos), data, pos)
+@@ -58,4 +56,4 @@ class NoticeResponse(BackendMessage):
+         return ', '.join(ordered)
+ 
+ 
+-NoticeResponse._message_id('N')
++NoticeResponse._message_id(b'N')
 diff --git a/vertica_python/vertica/messages/backend_messages/parameter_description.py b/vertica_python/vertica/messages/backend_messages/parameter_description.py
-index 0c0b9fb..d5ddac9 100644
+index 0c0b9fb..91113f1 100644
 --- a/vertica_python/vertica/messages/backend_messages/parameter_description.py
 +++ b/vertica_python/vertica/messages/backend_messages/parameter_description.py
 @@ -1,4 +1,4 @@
@@ -442,18 +753,38 @@ index 0c0b9fb..d5ddac9 100644
  
  from struct import unpack, unpack_from
  
+@@ -14,4 +14,4 @@ class ParameterDescription(BackendMessage):
+         self.parameter_types = [Column.data_types[dtid] for dtid in parameter_type_ids]
+ 
+ 
+-ParameterDescription._message_id('t')
++ParameterDescription._message_id(b't')
 diff --git a/vertica_python/vertica/messages/backend_messages/parameter_status.py b/vertica_python/vertica/messages/backend_messages/parameter_status.py
-index 06c952a..7c32b24 100644
+index 06c952a..c96b4b2 100644
 --- a/vertica_python/vertica/messages/backend_messages/parameter_status.py
 +++ b/vertica_python/vertica/messages/backend_messages/parameter_status.py
-@@ -1,4 +1,4 @@
+@@ -1,6 +1,4 @@
 -from __future__ import absolute_import
-+
  
- import string
+-import string
  
+ from struct import unpack
+ 
+@@ -10,10 +8,10 @@ from vertica_python.vertica.messages.message import BackendMessage
+ class ParameterStatus(BackendMessage):
+ 
+     def __init__(self, data):
+-        null_byte = string.find(data, '\x00')
++        null_byte = data.find(b'\x00')
+         unpacked = unpack('{0}sx{1}sx'.format(null_byte - 1, len(data) - null_byte - 1), data)
+         self.name = unpacked[0]
+         self.value = unpacked[1]
+ 
+ 
+-ParameterStatus._message_id('S')
++ParameterStatus._message_id(b'S')
 diff --git a/vertica_python/vertica/messages/backend_messages/parse_complete.py b/vertica_python/vertica/messages/backend_messages/parse_complete.py
-index ea3c1ab..d286714 100644
+index ea3c1ab..9e3664e 100644
 --- a/vertica_python/vertica/messages/backend_messages/parse_complete.py
 +++ b/vertica_python/vertica/messages/backend_messages/parse_complete.py
 @@ -1,4 +1,4 @@
@@ -462,8 +793,14 @@ index ea3c1ab..d286714 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+@@ -7,4 +7,4 @@ class ParseComplete(BackendMessage):
+     pass
+ 
+ 
+-ParseComplete._message_id('1')
++ParseComplete._message_id(b'1')
 diff --git a/vertica_python/vertica/messages/backend_messages/portal_suspended.py b/vertica_python/vertica/messages/backend_messages/portal_suspended.py
-index 773f078..3b94325 100644
+index 773f078..52c2f8b 100644
 --- a/vertica_python/vertica/messages/backend_messages/portal_suspended.py
 +++ b/vertica_python/vertica/messages/backend_messages/portal_suspended.py
 @@ -1,4 +1,4 @@
@@ -472,8 +809,14 @@ index 773f078..3b94325 100644
  
  from vertica_python.vertica.messages.message import BackendMessage
  
+@@ -7,4 +7,4 @@ class PortalSuspended(BackendMessage):
+     pass
+ 
+ 
+-PortalSuspended._message_id('s')
++PortalSuspended._message_id(b's')
 diff --git a/vertica_python/vertica/messages/backend_messages/ready_for_query.py b/vertica_python/vertica/messages/backend_messages/ready_for_query.py
-index 1c38a5a..c6640e7 100644
+index 1c38a5a..6d6fec2 100644
 --- a/vertica_python/vertica/messages/backend_messages/ready_for_query.py
 +++ b/vertica_python/vertica/messages/backend_messages/ready_for_query.py
 @@ -1,4 +1,4 @@
@@ -482,25 +825,52 @@ index 1c38a5a..c6640e7 100644
  
  from struct import unpack
  
+@@ -8,13 +8,13 @@ from vertica_python.vertica.messages.message import BackendMessage
+ class ReadyForQuery(BackendMessage):
+ 
+     STATUSES = {
+-        'I': 'no_transaction',
+-        'T': 'in_transaction',
+-        'E': 'failed_transaction'
++        b'I': 'no_transaction',
++        b'T': 'in_transaction',
++        b'E': 'failed_transaction'
+     }
+ 
+     def __init__(self, data):
+         self.transaction_status = self.STATUSES[unpack('c', data)[0]]
+ 
+ 
+-ReadyForQuery._message_id('Z')
++ReadyForQuery._message_id(b'Z')
 diff --git a/vertica_python/vertica/messages/backend_messages/row_description.py b/vertica_python/vertica/messages/backend_messages/row_description.py
-index 1913f32..0e621cf 100644
+index 1913f32..3c8cae0 100644
 --- a/vertica_python/vertica/messages/backend_messages/row_description.py
 +++ b/vertica_python/vertica/messages/backend_messages/row_description.py
-@@ -1,4 +1,4 @@
+@@ -1,6 +1,4 @@
 -from __future__ import absolute_import
-+
  
- import string
+-import string
  
-@@ -15,7 +15,7 @@ class RowDescription(BackendMessage):
+ from struct import unpack, unpack_from
+ 
+@@ -15,8 +13,8 @@ class RowDescription(BackendMessage):
          field_count = unpack('!H', data[0:2])[0]
          pos = 2
  
 -        for i in xrange(field_count):
+-            field_info = unpack_from("!{0}sxIHIHIH".format(string.find(data, '\x00', pos) - pos), data, pos)
 +        for i in range(field_count):
-             field_info = unpack_from("!{0}sxIHIHIH".format(string.find(data, '\x00', pos) - pos), data, pos)
++            field_info = unpack_from("!{0}sxIHIHIH".format(data.find(b'\x00', pos) - pos), data, pos)
              self.fields.append({
                  'name': field_info[0],
+                 'table_oid': field_info[1],
+@@ -30,4 +28,4 @@ class RowDescription(BackendMessage):
+             pos += 19 + len(field_info[0])
+ 
+ 
+-RowDescription._message_id('T')
++RowDescription._message_id(b'T')
 diff --git a/vertica_python/vertica/messages/backend_messages/unknown.py b/vertica_python/vertica/messages/backend_messages/unknown.py
 index e646e89..9333801 100644
 --- a/vertica_python/vertica/messages/backend_messages/unknown.py
@@ -512,24 +882,36 @@ index e646e89..9333801 100644
  from vertica_python.vertica.messages.message import BackendMessage
  
 diff --git a/vertica_python/vertica/messages/frontend_messages/bind.py b/vertica_python/vertica/messages/frontend_messages/bind.py
-index bc4bb23..0a1644d 100644
+index bc4bb23..6f367b9 100644
 --- a/vertica_python/vertica/messages/frontend_messages/bind.py
 +++ b/vertica_python/vertica/messages/frontend_messages/bind.py
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,3 @@
 -from __future__ import absolute_import
-+
- 
+-
  from struct import pack
  
-@@ -14,7 +14,7 @@ class Bind(FrontendMessage):
+ from vertica_python.vertica.messages.message import FrontendMessage
+@@ -13,14 +11,14 @@ class Bind(FrontendMessage):
+         self.parameter_values = parameter_values
  
      def to_bytes(self):
-         bytes = pack('!{0}sx{1}sxHH'.format(len(self.portal_name), len(self.prepared_statement_name)), self.portal_name, self.prepared_statement_name, 0, len(self.parameter_values))
--        for val in self.parameter_values.values():
-+        for val in list(self.parameter_values.values()):
+-        bytes = pack('!{0}sx{1}sxHH'.format(len(self.portal_name), len(self.prepared_statement_name)), self.portal_name, self.prepared_statement_name, 0, len(self.parameter_values))
++        bytes_ = pack('!{0}sx{1}sxHH'.format(len(self.portal_name), len(self.prepared_statement_name)), self.portal_name, self.prepared_statement_name, 0, len(self.parameter_values))
+         for val in self.parameter_values.values():
              if val is None:
-                 bytes += pack('!I', [-1])
+-                bytes += pack('!I', [-1])
++                bytes_ += pack('!I', [-1])
              else:
+-                bytes += pack('!I{0}s'.format(len(val)), len(val), val)
+-        bytes += pack('!H', [0])
+-        return self.message_string(bytes)
++                bytes_ += pack('!I{0}s'.format(len(val)), len(val), val)
++        bytes_ += pack('!H', [0])
++        return self.message_string(bytes_)
+ 
+ 
+-Bind._message_id('B')
++Bind._message_id(b'B')
 diff --git a/vertica_python/vertica/messages/frontend_messages/cancel_request.py b/vertica_python/vertica/messages/frontend_messages/cancel_request.py
 index 6e38ef0..b009760 100644
 --- a/vertica_python/vertica/messages/frontend_messages/cancel_request.py
@@ -541,7 +923,7 @@ index 6e38ef0..b009760 100644
  from struct import pack
  
 diff --git a/vertica_python/vertica/messages/frontend_messages/close.py b/vertica_python/vertica/messages/frontend_messages/close.py
-index 30f8bc3..e18ce0b 100644
+index 30f8bc3..4ef4200 100644
 --- a/vertica_python/vertica/messages/frontend_messages/close.py
 +++ b/vertica_python/vertica/messages/frontend_messages/close.py
 @@ -1,4 +1,4 @@
@@ -550,8 +932,14 @@ index 30f8bc3..e18ce0b 100644
  
  from struct import pack
  
+@@ -21,4 +21,4 @@ class Close(FrontendMessage):
+         return self.message_string(pack('c{0}sx'.format(len(self.close_name)), self.close_type, self.close_name))
+ 
+ 
+-Close._message_id('C')
++Close._message_id(b'C')
 diff --git a/vertica_python/vertica/messages/frontend_messages/copy_data.py b/vertica_python/vertica/messages/frontend_messages/copy_data.py
-index 0d30748..23016c8 100644
+index 0d30748..95f1683 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_data.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_data.py
 @@ -1,4 +1,4 @@
@@ -560,8 +948,14 @@ index 0d30748..23016c8 100644
  
  from struct import pack
  
+@@ -16,4 +16,4 @@ class CopyData(FrontendMessage):
+         return self.message_string(pack('{0}s'.format(len(encoded)), encoded))
+ 
+ 
+-CopyData._message_id('d')
++CopyData._message_id(b'd')
 diff --git a/vertica_python/vertica/messages/frontend_messages/copy_done.py b/vertica_python/vertica/messages/frontend_messages/copy_done.py
-index 6e0697f..9d81088 100644
+index 6e0697f..cf58479 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_done.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_done.py
 @@ -1,4 +1,4 @@
@@ -570,8 +964,14 @@ index 6e0697f..9d81088 100644
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+@@ -7,4 +7,4 @@ class CopyDone(FrontendMessage):
+     pass
+ 
+ 
+-CopyDone._message_id('c')
++CopyDone._message_id(b'c')
 diff --git a/vertica_python/vertica/messages/frontend_messages/copy_fail.py b/vertica_python/vertica/messages/frontend_messages/copy_fail.py
-index 436ba9c..1458b50 100644
+index 436ba9c..11697a0 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_fail.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_fail.py
 @@ -1,4 +1,4 @@
@@ -580,8 +980,14 @@ index 436ba9c..1458b50 100644
  
  from struct import pack
  
+@@ -14,4 +14,4 @@ class CopyFail(FrontendMessage):
+         return self.message_string(pack('{0}sx'.format(len(self.error_message)), self.error_message))
+ 
+ 
+-CopyFail._message_id('f')
++CopyFail._message_id(b'f')
 diff --git a/vertica_python/vertica/messages/frontend_messages/copy_stream.py b/vertica_python/vertica/messages/frontend_messages/copy_stream.py
-index 29bdc15..97af9ca 100644
+index 29bdc15..2161f2a 100644
 --- a/vertica_python/vertica/messages/frontend_messages/copy_stream.py
 +++ b/vertica_python/vertica/messages/frontend_messages/copy_stream.py
 @@ -1,4 +1,4 @@
@@ -590,8 +996,14 @@ index 29bdc15..97af9ca 100644
  
  from struct import pack
  
+@@ -19,4 +19,4 @@ class CopyStream(FrontendMessage):
+ 
+         return self.message_string(data)
+ 
+-CopyStream._message_id('d')
++CopyStream._message_id(b'd')
 diff --git a/vertica_python/vertica/messages/frontend_messages/describe.py b/vertica_python/vertica/messages/frontend_messages/describe.py
-index 49e3630..c07f9a0 100644
+index 49e3630..c75f0cb 100644
 --- a/vertica_python/vertica/messages/frontend_messages/describe.py
 +++ b/vertica_python/vertica/messages/frontend_messages/describe.py
 @@ -1,4 +1,4 @@
@@ -600,8 +1012,14 @@ index 49e3630..c07f9a0 100644
  
  from struct import pack
  
+@@ -21,4 +21,4 @@ class Describe(FrontendMessage):
+         return self.message_string(pack('c{0}sx'.format(len(self.describe_name)), self.describe_type, self.describe_name))
+ 
+ 
+-Describe._message_id('D')
++Describe._message_id(b'D')
 diff --git a/vertica_python/vertica/messages/frontend_messages/execute.py b/vertica_python/vertica/messages/frontend_messages/execute.py
-index df52f25..ad2d250 100644
+index df52f25..6757b4f 100644
 --- a/vertica_python/vertica/messages/frontend_messages/execute.py
 +++ b/vertica_python/vertica/messages/frontend_messages/execute.py
 @@ -1,4 +1,4 @@
@@ -610,8 +1028,14 @@ index df52f25..ad2d250 100644
  
  from struct import pack
  
+@@ -15,4 +15,4 @@ class Execute(FrontendMessage):
+         return self.message_string(pack('!{0}sxI'.format(len(self.portal_name)), self.portal_name, self.max_rows))
+ 
+ 
+-Execute._message_id('E')
++Execute._message_id(b'E')
 diff --git a/vertica_python/vertica/messages/frontend_messages/flush.py b/vertica_python/vertica/messages/frontend_messages/flush.py
-index 64f06e1..a124e99 100644
+index 64f06e1..e5da303 100644
 --- a/vertica_python/vertica/messages/frontend_messages/flush.py
 +++ b/vertica_python/vertica/messages/frontend_messages/flush.py
 @@ -1,4 +1,4 @@
@@ -620,8 +1044,14 @@ index 64f06e1..a124e99 100644
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+@@ -7,4 +7,4 @@ class Flush(FrontendMessage):
+     pass
+ 
+ 
+-Flush._message_id('H')
++Flush._message_id(b'H')
 diff --git a/vertica_python/vertica/messages/frontend_messages/parse.py b/vertica_python/vertica/messages/frontend_messages/parse.py
-index 93056c9..bd7d120 100644
+index 93056c9..876aa88 100644
 --- a/vertica_python/vertica/messages/frontend_messages/parse.py
 +++ b/vertica_python/vertica/messages/frontend_messages/parse.py
 @@ -1,4 +1,4 @@
@@ -630,8 +1060,14 @@ index 93056c9..bd7d120 100644
  
  from struct import pack
  
+@@ -20,4 +20,4 @@ class Parse(FrontendMessage):
+         return self.message_string(pack('!{0}sx{1}sxH{2}I'.format(len(self.name), len(self.query), len(self.param_types)), self.name, self.query, len(self.param_types), params))
+ 
+ 
+-Parse._message_id('P')
++Parse._message_id(b'P')
 diff --git a/vertica_python/vertica/messages/frontend_messages/password.py b/vertica_python/vertica/messages/frontend_messages/password.py
-index b14c390..e6b7e37 100644
+index b14c390..90258d4 100644
 --- a/vertica_python/vertica/messages/frontend_messages/password.py
 +++ b/vertica_python/vertica/messages/frontend_messages/password.py
 @@ -1,4 +1,4 @@
@@ -640,8 +1076,14 @@ index b14c390..e6b7e37 100644
  
  import os
  
+@@ -47,4 +47,4 @@ class Password(FrontendMessage):
+         return self.message_string(pack('{0}sx'.format(len(encoded_pw)), encoded_pw))
+ 
+ 
+-Password._message_id('p')
++Password._message_id(b'p')
 diff --git a/vertica_python/vertica/messages/frontend_messages/query.py b/vertica_python/vertica/messages/frontend_messages/query.py
-index 5ca8f3d..5b18784 100644
+index 5ca8f3d..1ebe929 100644
 --- a/vertica_python/vertica/messages/frontend_messages/query.py
 +++ b/vertica_python/vertica/messages/frontend_messages/query.py
 @@ -1,4 +1,4 @@
@@ -650,15 +1092,20 @@ index 5ca8f3d..5b18784 100644
  
  from struct import pack
  
-@@ -13,7 +13,7 @@ class Query(FrontendMessage):
+@@ -11,11 +11,8 @@ class Query(FrontendMessage):
+         self.query_string = query_string
+ 
      def to_bytes(self):
-         s = self.query_string
-         if isinstance(s, str):
+-        s = self.query_string
+-        if isinstance(s, str):
 -                s = unicode(s, 'utf-8')
-+                s = str(s, 'utf-8')
-         encoded = s.encode('utf-8')
+-        encoded = s.encode('utf-8')
++        encoded = self.query_string.encode('utf-8')
          return self.message_string(pack('{0}sx'.format(len(encoded)), encoded))
  
+ 
+-Query._message_id('Q')
++Query._message_id(b'Q')
 diff --git a/vertica_python/vertica/messages/frontend_messages/ssl_request.py b/vertica_python/vertica/messages/frontend_messages/ssl_request.py
 index f324074..a26e285 100644
 --- a/vertica_python/vertica/messages/frontend_messages/ssl_request.py
@@ -670,7 +1117,7 @@ index f324074..a26e285 100644
  from struct import pack
  
 diff --git a/vertica_python/vertica/messages/frontend_messages/startup.py b/vertica_python/vertica/messages/frontend_messages/startup.py
-index d796107..89d53e5 100644
+index d796107..767cdd6 100644
 --- a/vertica_python/vertica/messages/frontend_messages/startup.py
 +++ b/vertica_python/vertica/messages/frontend_messages/startup.py
 @@ -1,4 +1,4 @@
@@ -679,8 +1126,23 @@ index d796107..89d53e5 100644
  
  from struct import pack
  
+@@ -16,11 +16,11 @@ class Startup(FrontendMessage):
+     def to_bytes(self):
+         startstr = pack('!I', vertica_python.PROTOCOL_VERSION)
+         if self.user is not None:
+-            startstr = startstr + pack('4sx{0}sx'.format(len(self.user)), 'user', self.user)
++            startstr = startstr + pack('4sx{0}sx'.format(len(self.user)), b'user', self.user)
+         if self.database is not None:
+-            startstr = startstr + pack('8sx{0}sx'.format(len(self.database)), 'database', self.database)
++            startstr = startstr + pack('8sx{0}sx'.format(len(self.database)), b'database', self.database)
+         if self.options is not None:
+-            startstr = startstr + pack('7sx{0}sx'.format(len(self.options)), 'options', self.options)
++            startstr = startstr + pack('7sx{0}sx'.format(len(self.options)), b'options', self.options)
+         startstr = startstr + pack('x')
+         return self.message_string(startstr)
+ 
 diff --git a/vertica_python/vertica/messages/frontend_messages/sync.py b/vertica_python/vertica/messages/frontend_messages/sync.py
-index 1e3ab36..70d70b9 100644
+index 1e3ab36..12a0635 100644
 --- a/vertica_python/vertica/messages/frontend_messages/sync.py
 +++ b/vertica_python/vertica/messages/frontend_messages/sync.py
 @@ -1,4 +1,4 @@
@@ -689,8 +1151,14 @@ index 1e3ab36..70d70b9 100644
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+@@ -7,4 +7,4 @@ class Sync(FrontendMessage):
+     pass
+ 
+ 
+-Sync._message_id('S')
++Sync._message_id(b'S')
 diff --git a/vertica_python/vertica/messages/frontend_messages/terminate.py b/vertica_python/vertica/messages/frontend_messages/terminate.py
-index 08b6184..6cdba51 100644
+index 08b6184..9d4b84b 100644
 --- a/vertica_python/vertica/messages/frontend_messages/terminate.py
 +++ b/vertica_python/vertica/messages/frontend_messages/terminate.py
 @@ -1,4 +1,4 @@
@@ -699,8 +1167,14 @@ index 08b6184..6cdba51 100644
  
  from vertica_python.vertica.messages.message import FrontendMessage
  
+@@ -7,4 +7,4 @@ class Terminate(FrontendMessage):
+     pass
+ 
+ 
+-Terminate._message_id('X')
++Terminate._message_id(b'X')
 diff --git a/vertica_python/vertica/messages/message.py b/vertica_python/vertica/messages/message.py
-index 16d5b01..e32e9e4 100644
+index 16d5b01..575bce5 100644
 --- a/vertica_python/vertica/messages/message.py
 +++ b/vertica_python/vertica/messages/message.py
 @@ -1,4 +1,4 @@
@@ -709,3 +1183,37 @@ index 16d5b01..e32e9e4 100644
  
  import types
  
+@@ -29,9 +29,9 @@ class Message(object):
+ 
+         message_size = pack('!I', bytesize)
+         if self.message_id() is not None:
+-            msg_with_size = "{0}{1}{2}".format(self.message_id(), message_size, msg)
++            msg_with_size = self.message_id() + message_size + msg
+         else:
+-            msg_with_size = "{0}{1}".format(message_size, msg)
++            msg_with_size = message_size + msg
+ 
+         return msg_with_size
+ 
+@@ -40,12 +40,12 @@ class BackendMessage(Message):
+     MessageIdMap = {}
+ 
+     @classmethod
+-    def factory(cls, type, data):
+-        klass = cls.MessageIdMap[type]
++    def factory(cls, type_, data):
++        klass = cls.MessageIdMap[type_]
+         if klass is not None:
+             return klass(data)
+         else:
+-            return messages.Unknown(type, data)
++            return messages.Unknown(type_, data)
+ 
+     @classmethod
+     def _message_id(cls, message_id):
+@@ -55,4 +55,4 @@ class BackendMessage(Message):
+ 
+ class FrontendMessage(Message):
+     def to_bytes(self):
+-        return self.message_string('')
++        return self.message_string(b'')
