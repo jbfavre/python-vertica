@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from collections import namedtuple
+import re
 
 from decimal import Decimal
 from datetime import date
@@ -9,6 +10,8 @@ from dateutil import parser
 from vertica_python import errors
 
 import pytz
+
+years_re = re.compile(r'^([0-9]+)-')
 
 
 # these methods are bad...
@@ -30,9 +33,31 @@ import pytz
 # timestamptz type stores: 2013-01-01 05:00:00.01+00
 #       select t AT TIMEZONE 'America/New_York' returns: 2012-12-31 19:00:00.01
 def timestamp_parse(s):
+    try:
+        dt = _timestamp_parse(s)
+    except ValueError:
+        # Value error, year might be over 9999
+        year_match = years_re.match(s)
+        if year_match:
+            year = year_match.groups()[0]
+            dt = _timestamp_parse_without_year(s[len(year) + 1:])
+            dt = dt.replace(year=int(year) % 10000)
+        else:
+            raise errors.DataError('Timestamp value not supported: %s' % s)
+
+    return dt
+
+
+def _timestamp_parse(s):
     if len(s) == 19:
         return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
     return datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f')
+
+
+def _timestamp_parse_without_year(s):
+    if len(s) == 14:
+        return datetime.strptime(s, '%m-%d %H:%M:%S')
+    return datetime.strptime(s, '%m-%d %H:%M:%S.%f')
 
 
 def timestamp_tz_parse(s):
@@ -67,31 +92,37 @@ ColumnTuple = namedtuple(
 
 class Column(object):
 
-    DATA_TYPE_CONVERSIONS = [
-        ('unspecified', None),
-        ('tuple', None),
-        ('pos', None),
-        ('record', None),
-        ('unknown', None),
-        ('bool', lambda s: s == 't'),
-        ('integer', lambda s: int(s)),
-        ('float', lambda s: float(s)),
-        ('char', lambda s: unicode(s, 'utf-8')),
-        ('varchar', lambda s: unicode(s, 'utf-8')),
-        ('date', date_parse),
-        ('time', None),
-        ('timestamp', timestamp_parse),
-        ('timestamp_tz', timestamp_tz_parse),
-        ('interval', None),
-        ('time_tz', None),
-        ('numeric', lambda s: Decimal(s)),
-        ('bytea', None),
-        ('rle_tuple', None),
-    ]
-    DATA_TYPES = map(lambda x: x[0], DATA_TYPE_CONVERSIONS)
+    @classmethod
+    def data_type_conversions(cls, unicode_error=None):
+        if unicode_error is None:
+            unicode_error = 'strict'
+        return [
+            ('unspecified', None),
+            ('tuple', None),
+            ('pos', None),
+            ('record', None),
+            ('unknown', None),
+            ('bool', lambda s: s == 't'),
+            ('integer', lambda s: int(s)),
+            ('float', lambda s: float(s)),
+            ('char', lambda s: unicode(s, 'utf-8', unicode_error)),
+            ('varchar', lambda s: unicode(s, 'utf-8', unicode_error)),
+            ('date', date_parse),
+            ('time', None),
+            ('timestamp', timestamp_parse),
+            ('timestamp_tz', timestamp_tz_parse),
+            ('interval', None),
+            ('time_tz', None),
+            ('numeric', lambda s: Decimal(s)),
+            ('bytea', None),
+            ('rle_tuple', None),
+        ]
 
-    def __init__(self, col):
+    @property
+    def data_types():
+        return map(lambda x: x[0], Column.data_type_conversions())
 
+    def __init__(self, col, unicode_error=None):
         self.name = col['name']
         self.type_code = col['data_type_oid']
         self.display_size = None
@@ -99,20 +130,26 @@ class Column(object):
         self.precision = None
         self.scale = None
         self.null_ok = None
+        self.unicode_error = unicode_error
+        self.data_type_conversions = Column.data_type_conversions(unicode_error=self.unicode_error)
 
         # WORKAROUND: Treat LONGVARCHAR as VARCHAR
         if self.type_code == 115:
             self.type_code = 9
 
+        # Mark type_code as unspecified if not within known data types
+        if self.type_code >= len(self.data_type_conversions):
+            self.type_code = 0
+
         #self.props = ColumnTuple(col['name'], col['data_type_oid'], None, col['data_type_size'], None, None, None)
         self.props = ColumnTuple(col['name'], self.type_code, None, col['data_type_size'], None, None, None)
 
-        #self.converter = self.DATA_TYPE_CONVERSIONS[col['data_type_oid']][1]
-        self.converter = self.DATA_TYPE_CONVERSIONS[self.type_code][1]
+        #self.converter = self.data_type_conversions[col['data_type_oid']][1]
+        self.converter = self.data_type_conversions[self.type_code][1]
 
         # things that are actually sent
 #        self.name = col['name']
-#        self.data_type = self.DATA_TYPE_CONVERSIONS[col['data_type_oid']][0]
+#        self.data_type = self.data_type_conversions[col['data_type_oid']][0]
 #        self.type_modifier = col['type_modifier']
 #        self.format = 'text' if col['format_code'] == 0 else 'binary'
 #        self.table_oid = col['table_oid']

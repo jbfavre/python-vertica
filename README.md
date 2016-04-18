@@ -37,11 +37,15 @@ Source code for vertica-python can be found at:
 
 
 ## Run unit tests
+
+To run the tests, you must have access to a Vertica database. You can
+spin one up with Vagrant that uses the default credentials using
+`vagrant up`. If you want to run it against an existing database
+instead; you can set the environment variables seen in
+`tests/test_commons.py`.
+
     # install nose if you don't have it
     pip install -r requirements_test.txt
-
-    # you will need to have access to a vertica database.
-    # connection info is in tests/basic_tests.py
 
     # run tests
     nosetests
@@ -53,13 +57,17 @@ Source code for vertica-python can be found at:
 **Create connection**
 
 ```python
-from vertica_python import connect
+import vertica_python
 
-conn_info = {'host': '127.0.0.1', 
-             'port': 5433, 
-             'user': 'some_user', 
-             'password': 'some_password', 
-             'database': 'a_database'}
+conn_info = {'host': '127.0.0.1',
+             'port': 5433,
+             'user': 'some_user',
+             'password': 'some_password',
+             'database': 'a_database',
+             # 10 minutes timeout on queries
+             'read_timeout': 600,
+             # default throw error on invalid UTF-8 results
+             'unicode_error': 'strict'}
 
 # simple connection, with manual close
 connection = vertica_python.connect(**conn_info)
@@ -77,10 +85,12 @@ with vertica_python.connect(**conn_info) as connection:
 ```python
 cur = connection.cursor()
 cur.execute("SELECT * FROM a_table LIMIT 2")
+
 for row in cur.iterate():
     print(row)
-# {'id': 1, 'value': 'something'}
-# {'id': 2, 'value': 'something_else'}
+# [ 1, 'some text', datetime.datetime(2014, 5, 18, 6, 47, 1, 928014) ]
+# [ 2, 'something else', None ]
+
 ```
 Streaming is recommended if you want to further process each row, save the results in a non-list/dict format (e.g. Pandas DataFrame), or save the results in a file.
 
@@ -113,6 +123,7 @@ connection.close()
 
 cur = connection.cursor()
 cur.execute("SELECT * FROM a_table WHERE a = :propA b = :propB", {'propA': 1, 'propB': 'stringValue'})
+
 cur.fetchall()
 # [ [1, 'something'], [2, 'something_else'] ]
 ```
@@ -145,6 +156,80 @@ cur.copy("COPY test_copy (id, name) from stdin DELIMITER ',' ",  csv)
 
 Where `csv` is either a string or a file-like object (specifically, any object with a `read()` method). If using a file, the data is streamed.
 
+
+
+## Rowcount oddities
+
+vertica_python behaves a bit differently than dbapi when returning rowcounts.
+
+After a select execution, the rowcount will be -1, indicating that the row count is unknown. The rowcount value will be updated as data is streamed.
+
+```python
+cur.execute('SELECT 10 things')
+
+cur.rowcount == -1  # indicates unknown rowcount
+
+cur.fetchone()
+cur.rowcount == 1
+cur.fetchone()
+cur.rowcount == 2
+cur.fetchall()
+cur.rowcount == 10
+```
+
+After an insert/update/delete, the rowcount will be returned as a single element row:
+
+```python
+cur.execute("DELETE 3 things")
+
+cur.rowcount == -1  # indicates unknown rowcount
+cur.fetchone()[0] == 3
+```
+
+## Nextset
+
+If you execute multiple statements in a single call to execute(), you can use cursor.nextset() to retrieve all of the data.
+
+```python
+cur.execute('SELECT 1; SELECT 2;')
+
+cur.fetchone()
+# [1]
+cur.fetchone()
+# None
+
+cur.nextset()
+# True
+
+cur.fetchone()
+# [2]
+cur.fetchone()
+# None
+
+cur.nextset()
+# None
+```
+
+## UTF-8 encoding issues
+
+While Vertica expects varchars stored to be UTF-8 encoded, sometimes invalid stirngs get intot the database. You can specify how to handle reading these characters using the unicode_error conneciton option. This uses the same values as the unicode type (https://docs.python.org/2/library/functions.html#unicode)
+
+```python
+cur = vertica_python.Connection({..., 'unicode_error': 'strict'}).cursor()
+cur.execute(r"SELECT E'\xC2'")
+cur.fetchone()
+# caught 'utf8' codec can't decode byte 0xc2 in position 0: unexpected end of data
+
+cur = vertica_python.Connection({..., 'unicode_error': 'replace'}).cursor()
+cur.execute(r"SELECT E'\xC2'")
+cur.fetchone()
+# �
+
+cur = vertica_python.Connection({..., 'unicode_error': 'ignore'}).cursor()
+cur.execute(r"SELECT E'\xC2'")
+cur.fetchone()
+# 
+```
 
 ## License
 
