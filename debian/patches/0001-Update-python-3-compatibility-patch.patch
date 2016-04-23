@@ -1,4 +1,4 @@
-From 4bd817c41fbba2c3383ef26dc1439e145884ab0a Mon Sep 17 00:00:00 2001
+From 461d63a1ef4b558d51228f1cd42c9a39e24d6fac Mon Sep 17 00:00:00 2001
 From: Jean Baptiste Favre <github@jbfavre.org>
 Date: Sun, 10 Apr 2016 17:49:01 +0200
 Subject: Update python 3 compatibility patch
@@ -12,7 +12,7 @@ Subject: Update python 3 compatibility patch
  vertica_python/tests/unicode_tests.py              | 11 ++++
  vertica_python/vertica/column.py                   | 15 ++---
  vertica_python/vertica/connection.py               | 35 ++++++-----
- vertica_python/vertica/cursor.py                   | 14 +++--
+ vertica_python/vertica/cursor.py                   | 15 ++---
  vertica_python/vertica/messages/__init__.py        | 70 +++++++++++-----------
  .../messages/backend_messages/authentication.py    |  4 +-
  .../messages/backend_messages/backend_key_data.py  |  4 +-
@@ -50,10 +50,10 @@ Subject: Update python 3 compatibility patch
  .../vertica/messages/frontend_messages/sync.py     |  4 +-
  .../messages/frontend_messages/terminate.py        |  4 +-
  vertica_python/vertica/messages/message.py         | 14 ++---
- 46 files changed, 205 insertions(+), 196 deletions(-)
+ 46 files changed, 205 insertions(+), 197 deletions(-)
 
 diff --git a/vertica_python/__init__.py b/vertica_python/__init__.py
-index 5a7dc99..1a751da 100644
+index c0fb885..5bc34da 100644
 --- a/vertica_python/__init__.py
 +++ b/vertica_python/__init__.py
 @@ -1,4 +1,4 @@
@@ -225,7 +225,7 @@ index 7dd4df5..91c41dd 100644
      def __repr__(self):
          return self.props.__str__()
 diff --git a/vertica_python/vertica/connection.py b/vertica_python/vertica/connection.py
-index 8bc9a1e..ddbdaf4 100644
+index 1865fbf..2910aba 100644
 --- a/vertica_python/vertica/connection.py
 +++ b/vertica_python/vertica/connection.py
 @@ -1,4 +1,4 @@
@@ -276,7 +276,19 @@ index 8bc9a1e..ddbdaf4 100644
                  self.rollback()
              else:
                  self.commit()
-@@ -134,7 +137,7 @@ class Connection(object):
+@@ -116,9 +119,9 @@ class Connection(object):
+                         raw_socket = ssl_options.wrap_socket(raw_socket, server_hostname=host)
+                     else:
+                         raw_socket = ssl.wrap_socket(raw_socket)
+-                except CertificateError, e:
++                except CertificateError as e:
+                     raise errors.ConnectionError('SSL: ' + e.message)
+-                except SSLError, e:
++                except SSLError as e:
+                     raise errors.ConnectionError('SSL: ' + e.reason)
+             else:
+                 raise SSLNotSupported("SSL requested but not supported by server")
+@@ -141,7 +144,7 @@ class Connection(object):
  
          is_stream = hasattr(message, "read_bytes")
  
@@ -285,7 +297,7 @@ index 8bc9a1e..ddbdaf4 100644
              raise TypeError("invalid message: ({0})".format(message))
  
          logger.debug('=> %s', message)
-@@ -151,12 +154,12 @@ class Connection(object):
+@@ -158,12 +161,12 @@ class Connection(object):
  
                      self._socket().sendall(data)
  
@@ -301,26 +313,9 @@ index 8bc9a1e..ddbdaf4 100644
  
      def close_socket(self):
          try:
-@@ -173,14 +176,14 @@ class Connection(object):
-         try:
-             ready = select.select([self._socket()], [], [], self.options['read_timeout'])
-             if len(ready[0]) > 0:
--                type = self.read_bytes(1)
-+                type_ = self.read_bytes(1)
-                 size = unpack('!I', self.read_bytes(4))[0]
- 
-                 if size < 4:
-                     raise errors.MessageError(
-                         "Bad message size: {0}".format(size)
-                     )
--                message = BackendMessage.factory(type, self.read_bytes(size - 4))
-+                message = BackendMessage.factory(type_, self.read_bytes(size - 4))
-                 logger.debug('<= %s', message)
-                 return message
-             else:
 @@ -190,7 +193,7 @@ class Connection(object):
-             raise
-         except Exception as e:
+             return message
+         except (SystemError, IOError) as e:
              self.close_socket()
 -            raise errors.ConnectionError(e.message)
 +            raise errors.ConnectionError(str(e))
@@ -354,22 +349,23 @@ index 8bc9a1e..ddbdaf4 100644
  
      def startup_connection(self):
 diff --git a/vertica_python/vertica/cursor.py b/vertica_python/vertica/cursor.py
-index 4389951..e26d3c1 100644
+index 611ffb9..8d8cb17 100644
 --- a/vertica_python/vertica/cursor.py
 +++ b/vertica_python/vertica/cursor.py
-@@ -1,8 +1,10 @@
+@@ -1,9 +1,10 @@
 -from __future__ import absolute_import
 +
  
  import re
  import logging
  
+-from ordereddict import OrderedDict
++from collections import OrderedDict
 +from builtins import str
-+
+ 
  import vertica_python.errors as errors
  
- import vertica_python.vertica.messages as messages
-@@ -30,7 +32,7 @@ class Cursor(object):
+@@ -32,7 +33,7 @@ class Cursor(object):
      def __enter__(self):
          return self
  
@@ -378,7 +374,7 @@ index 4389951..e26d3c1 100644
          self.close()
  
      #
-@@ -57,19 +59,19 @@ class Cursor(object):
+@@ -59,19 +60,19 @@ class Cursor(object):
                  for key in parameters:
                      param = parameters[key]
                      # Make sure adapt() behaves properly
@@ -401,7 +397,7 @@ index 4389951..e26d3c1 100644
                          tlist.append(adapt(p.encode('utf8')).getquoted())
                      else:
                          tlist.append(adapt(p).getquoted())
-@@ -89,7 +91,7 @@ class Cursor(object):
+@@ -91,7 +92,7 @@ class Cursor(object):
              if isinstance(message, messages.ErrorResponse):
                  raise errors.QueryError.from_error_response(message, operation)
              elif isinstance(message, messages.RowDescription):
