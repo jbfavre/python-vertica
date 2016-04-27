@@ -1,8 +1,7 @@
 python-vertica (0.5.8-1) unstable; urgency=medium
 
   * Update Debian standards version
-  * Import python-vertica_0.5.8.orig.tar.gz
-  * record new upstream branch created by importing python-vertica_0.5.8.orig.tar.gz
+  * New upstream version
   * Update python 3 compatibility patch
 
  -- Jean Baptiste Favre <debian@jbfavre.org>  Sat, 23 Apr 2016 09:14:39 +0200
