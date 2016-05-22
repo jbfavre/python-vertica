@@ -113,7 +113,7 @@ class Connection(object):
             from ssl import CertificateError, SSLError
             raw_socket.sendall(messages.SslRequest().to_bytes())
             response = raw_socket.recv(1)
-            if response == 'S':
+            if response in ('S', b'S'):
                 try:
                     if isinstance(ssl_options, ssl.SSLContext):
                         raw_socket = ssl_options.wrap_socket(raw_socket, server_hostname=host)
@@ -181,14 +181,14 @@ class Connection(object):
 
     def read_message(self):
         try:
-            type = self.read_bytes(1)
+            type_ = self.read_bytes(1)
             size = unpack('!I', self.read_bytes(4))[0]
 
             if size < 4:
                 raise errors.MessageError(
                     "Bad message size: {0}".format(size)
                 )
-            message = BackendMessage.factory(type, self.read_bytes(size - 4))
+            message = BackendMessage.factory(type_, self.read_bytes(size - 4))
             logger.debug('<= %s', message)
             return message
         except (SystemError, IOError) as e:
