@@ -2,10 +2,10 @@
 461d63a1ef4b558d51228f1cd42c9a39e24d6fac
 461d63a1ef4b558d51228f1cd42c9a39e24d6fac
 f023f12a95089c1178b78e28da29d6842bfc3865
-f023f12a95089c1178b78e28da29d6842bfc3865
-python-vertica_0.5.8.orig.tar.gz
-1f6b9f43d60f70df09bbbfb885f4a01da8311ae0
-23136
+8267539dc3f1bd9bac19348ddb9c8f6fac443af9
+python-vertica_0.6.2.orig.tar.gz
+7d25b614e8e26aaf6f08841cfff6a2877c2665a6
+23572
 debianTag="debian/%e%v"
 patchedTag="patched/%e%v"
 upstreamTag="upstream/%e%u"
