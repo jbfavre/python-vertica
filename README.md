@@ -2,6 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/vertica-python.png)](http://badge.fury.io/py/vertica-python)
 
+0.6.x adds python3 support (namedparams support is currently broken in python3, see issue 112)
+
 0.5.x changes the connection method to accept kwargs instead of a dict to be more dbapi compliant.
       copy methods improved and consolidated in 0.5.1
 
@@ -13,7 +15,7 @@ vertica-python is a native Python adapter for the Vertica (http://www.vertica.co
 
 vertica-python is currently in beta stage; it has been tested for functionality and has a very basic test suite. Please use with caution, and feel free to submit issues and/or pull requests (after running the unit tests).
 
-vertica-python has been tested with Vertica 6.1.2/7.0.0+ and Python 2.6/2.7.
+vertica-python has been tested with Vertica 6.1.2/7.0.0+ and Python 2.7/3.4.
 
 
 ## Installation
@@ -44,11 +46,13 @@ spin one up with Vagrant that uses the default credentials using
 instead; you can set the environment variables seen in
 `tests/test_commons.py`.
 
-    # install nose if you don't have it
-    pip install -r requirements_test.txt
+Assuming you have [tox](http://tox.readthedocs.io/) installed, all you
+have to do is run `tox`. It will run the unit tests using both python 2 and 3.
 
-    # run tests
-    nosetests
+If you run into an error like:
+```ERROR: InterpreterNotFound: python3.4```
+
+Edit the envlist property of tox.ini to use the version of python you have installed (eg py35)
 
 
 ## Usage
