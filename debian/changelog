@@ -1,8 +1,6 @@
-python-vertica (0.6.2-1) unstable; urgency=medium
+python-vertica (0.6.3-1) unstable; urgency=medium
 
-  * Import python-vertica_0.6.2.orig.tar.gz
-  * Add patch for issue 116 on github
-  * Add patch for issue 117 on github
+  * New upstream version
 
  -- Jean Baptiste Favre <debian@jbfavre.org>  Sun, 22 May 2016 16:07:27 +0200
 
