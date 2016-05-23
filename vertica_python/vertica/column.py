@@ -34,6 +34,7 @@ years_re = re.compile(r'^([0-9]+)-')
 # timestamptz type stores: 2013-01-01 05:00:00.01+00
 #       select t AT TIMEZONE 'America/New_York' returns: 2012-12-31 19:00:00.01
 def timestamp_parse(s):
+    s = str(s, 'utf-8')
     try:
         dt = _timestamp_parse(s)
     except ValueError:
@@ -62,10 +63,11 @@ def _timestamp_parse_without_year(s):
 
 
 def timestamp_tz_parse(s):
+    s = str(s, 'utf-8')
     # if timezome is simply UTC...
     if s.endswith('+00'):
         # remove time zone
-        ts = timestamp_parse(s[:-3])
+        ts = timestamp_parse(s[:-3].encode(encoding='utf-8', errors='strict'))
         ts = ts.replace(tzinfo=pytz.UTC)
         return ts
     # other wise do a real parse (slower)
@@ -124,7 +126,7 @@ class Column(object):
         return map(lambda x: x[0], Column.data_type_conversions())
 
     def __init__(self, col, unicode_error=None):
-        self.name = col['name']
+        self.name = col['name'].decode()
         self.type_code = col['data_type_oid']
         self.display_size = None
         self.internal_size = col['data_type_size']
@@ -143,7 +145,7 @@ class Column(object):
             self.type_code = 0
 
         #self.props = ColumnTuple(col['name'], col['data_type_oid'], None, col['data_type_size'], None, None, None)
-        self.props = ColumnTuple(col['name'], self.type_code, None, col['data_type_size'], None, None, None)
+        self.props = ColumnTuple(self.name, self.type_code, None, col['data_type_size'], None, None, None)
 
         #self.converter = self.data_type_conversions[col['data_type_oid']][1]
         self.converter = self.data_type_conversions[self.type_code][1]
