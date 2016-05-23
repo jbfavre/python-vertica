@@ -1,8 +1,9 @@
-from __future__ import absolute_import
+
 
 from collections import namedtuple
 import re
 
+from builtins import str
 from decimal import Decimal
 from datetime import date
 from datetime import datetime
@@ -33,6 +34,7 @@ years_re = re.compile(r'^([0-9]+)-')
 # timestamptz type stores: 2013-01-01 05:00:00.01+00
 #       select t AT TIMEZONE 'America/New_York' returns: 2012-12-31 19:00:00.01
 def timestamp_parse(s):
+    s = str(s, 'utf-8')
     try:
         dt = _timestamp_parse(s)
     except ValueError:
@@ -61,10 +63,11 @@ def _timestamp_parse_without_year(s):
 
 
 def timestamp_tz_parse(s):
+    s = str(s, 'utf-8')
     # if timezome is simply UTC...
     if s.endswith('+00'):
         # remove time zone
-        ts = timestamp_parse(s[:-3])
+        ts = timestamp_parse(s[:-3].encode(encoding='utf-8', errors='strict'))
         ts = ts.replace(tzinfo=pytz.UTC)
         return ts
     # other wise do a real parse (slower)
@@ -78,10 +81,10 @@ def date_parse(s):
     :return: an instance of datetime.date
     :raises NotSupportedError when a date Before Christ is encountered
     """
-    if s.endswith(' BC'):
-        raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + s)
+    if s.endswith(b' BC'):
+        raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + str(s, 'utf-8'))
 
-    return date(*map(lambda x: int(x), s.split('-')))
+    return date(*map(lambda x: int(x), s.split(b'-')))
 
 ColumnTuple = namedtuple(
     'Column',
@@ -105,8 +108,8 @@ class Column(object):
             ('bool', lambda s: s == 't'),
             ('integer', lambda s: int(s)),
             ('float', lambda s: float(s)),
-            ('char', lambda s: unicode(s, 'utf-8', unicode_error)),
-            ('varchar', lambda s: unicode(s, 'utf-8', unicode_error)),
+            ('char', lambda s: str(s, 'utf-8', unicode_error)),
+            ('varchar', lambda s: str(s, 'utf-8', unicode_error)),
             ('date', date_parse),
             ('time', None),
             ('timestamp', timestamp_parse),
@@ -123,7 +126,7 @@ class Column(object):
         return map(lambda x: x[0], Column.data_type_conversions())
 
     def __init__(self, col, unicode_error=None):
-        self.name = col['name']
+        self.name = col['name'].decode()
         self.type_code = col['data_type_oid']
         self.display_size = None
         self.internal_size = col['data_type_size']
@@ -142,7 +145,7 @@ class Column(object):
             self.type_code = 0
 
         #self.props = ColumnTuple(col['name'], col['data_type_oid'], None, col['data_type_size'], None, None, None)
-        self.props = ColumnTuple(col['name'], self.type_code, None, col['data_type_size'], None, None, None)
+        self.props = ColumnTuple(self.name, self.type_code, None, col['data_type_size'], None, None, None)
 
         #self.converter = self.data_type_conversions[col['data_type_oid']][1]
         self.converter = self.data_type_conversions[self.type_code][1]
@@ -165,7 +168,7 @@ class Column(object):
         return self.props.__str__()
 
     def __unicode__(self):
-        return unicode(self.props.__str__())
+        return str(self.props.__str__())
 
     def __repr__(self):
         return self.props.__str__()

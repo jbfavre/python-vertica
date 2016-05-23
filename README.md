@@ -2,6 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/vertica-python.png)](http://badge.fury.io/py/vertica-python)
 
+0.6.x adds python3 support (namedparams support is currently broken in python3, see issue 112)
+
 0.5.x changes the connection method to accept kwargs instead of a dict to be more dbapi compliant.
       copy methods improved and consolidated in 0.5.1
 
@@ -13,7 +15,7 @@ vertica-python is a native Python adapter for the Vertica (http://www.vertica.co
 
 vertica-python is currently in beta stage; it has been tested for functionality and has a very basic test suite. Please use with caution, and feel free to submit issues and/or pull requests (after running the unit tests).
 
-vertica-python has been tested with Vertica 6.1.2/7.0.0+ and Python 2.6/2.7.
+vertica-python has been tested with Vertica 6.1.2/7.0.0+ and Python 2.7/3.4.
 
 
 ## Installation
@@ -44,11 +46,13 @@ spin one up with Vagrant that uses the default credentials using
 instead; you can set the environment variables seen in
 `tests/test_commons.py`.
 
-    # install nose if you don't have it
-    pip install -r requirements_test.txt
+Assuming you have [tox](http://tox.readthedocs.io/) installed, all you
+have to do is run `tox`. It will run the unit tests using both python 2 and 3.
 
-    # run tests
-    nosetests
+If you run into an error like:
+```ERROR: InterpreterNotFound: python3.4```
+
+Edit the envlist property of tox.ini to use the version of python you have installed (eg py35)
 
 
 ## Usage
@@ -67,7 +71,9 @@ conn_info = {'host': '127.0.0.1',
              # 10 minutes timeout on queries
              'read_timeout': 600,
              # default throw error on invalid UTF-8 results
-             'unicode_error': 'strict'}
+             'unicode_error': 'strict'
+             # SSL is disabled by default
+             'ssl': False}
 
 # simple connection, with manual close
 connection = vertica_python.connect(**conn_info)
@@ -79,6 +85,28 @@ with vertica_python.connect(**conn_info) as connection:
     # do things
 ```
 
+You can pass an `ssl.SSLContext` to `ssl` to customize the SSL connection options. For example,
+
+```python
+import vertica_python
+import ssl
+
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+ssl_context.verify_mode = ssl.CERT_REQUIRED
+ssl_context.check_hostname = True
+ssl_context.load_verify_locations(cafile='/path/to/ca_file.pem')
+
+conn_info = {'host': '127.0.0.1',
+             'port': 5433,
+             'user': 'some_user',
+             'password': 'some_password',
+             'database': 'a_database',
+             'ssl': ssl_context}
+connection = vertica_python.connect(**conn_info)
+
+```
+
+See more on SSL options [here](https://docs.python.org/2/library/ssl.html).
 
 **Stream query results**:
 
@@ -212,7 +240,7 @@ cur.nextset()
 
 ## UTF-8 encoding issues
 
-While Vertica expects varchars stored to be UTF-8 encoded, sometimes invalid stirngs get intot the database. You can specify how to handle reading these characters using the unicode_error conneciton option. This uses the same values as the unicode type (https://docs.python.org/2/library/functions.html#unicode)
+While Vertica expects varchars stored to be UTF-8 encoded, sometimes invalid strings get into the database. You can specify how to handle reading these characters using the unicode_error connection option. This uses the same values as the unicode type (https://docs.python.org/2/library/functions.html#unicode)
 
 ```python
 cur = vertica_python.Connection({..., 'unicode_error': 'strict'}).cursor()
