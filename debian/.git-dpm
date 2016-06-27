@@ -1,11 +1,11 @@
 # see git-dpm(1) from git-dpm package
-c35615bbca411cb9d2589d253f843cb0208ef58f
-c35615bbca411cb9d2589d253f843cb0208ef58f
-c35615bbca411cb9d2589d253f843cb0208ef58f
-c35615bbca411cb9d2589d253f843cb0208ef58f
-python-vertica_0.6.4.orig.tar.gz
-828aba13de5979c2ee8fa04c77971d26ccf046cc
-24106
+991ec5b54292eb7b299ac6f278368716d3aad8a7
+991ec5b54292eb7b299ac6f278368716d3aad8a7
+991ec5b54292eb7b299ac6f278368716d3aad8a7
+991ec5b54292eb7b299ac6f278368716d3aad8a7
+python-vertica_0.6.5.orig.tar.gz
+f05831461097aa6dcb968839daa20c62b25358f3
+24099
 debianTag="debian/%e%v"
 patchedTag="patched/%e%v"
 upstreamTag="upstream/%e%u"
