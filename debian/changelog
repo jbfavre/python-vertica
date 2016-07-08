@@ -1,3 +1,9 @@
+python-vertica (0.6.5-1~bpo7+1) stable; urgency=medium
+
+  * Imported Upstream version 0.6.5
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Fri, 08 Jul 2016 13:53:13 +0200
+
 python-vertica (0.6.4-1~bpo7+1) stable; urgency=medium
 
   * Imported Upstream version 0.6.4
