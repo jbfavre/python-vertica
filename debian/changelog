@@ -1,3 +1,9 @@
+python-vertica (0.6.6-1~bpo8+1) jessie-backports; urgency=medium
+
+  * Imported Upstream version 0.6.6
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Sun, 21 Aug 2016 11:18:19 +0200
+
 python-vertica (0.6.5-1~bpo8+1) jessie-backports; urgency=medium
 
   * Imported Upstream version 0.6.5
