@@ -2,7 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/vertica-python.png)](http://badge.fury.io/py/vertica-python)
 
-0.6.x adds python3 support (namedparams support is currently broken in python3, see issue 112)
+0.6.x adds python3 support (unicode namedparams support is currently broken in python3, see issue 112)
 
 0.5.x changes the connection method to accept kwargs instead of a dict to be more dbapi compliant.
       copy methods improved and consolidated in 0.5.1
@@ -71,7 +71,7 @@ conn_info = {'host': '127.0.0.1',
              # 10 minutes timeout on queries
              'read_timeout': 600,
              # default throw error on invalid UTF-8 results
-             'unicode_error': 'strict'
+             'unicode_error': 'strict',
              # SSL is disabled by default
              'ssl': False}
 
