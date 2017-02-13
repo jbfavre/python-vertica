@@ -84,7 +84,8 @@ def date_parse(s):
     if s.endswith(b' BC'):
         raise errors.NotSupportedError('Dates Before Christ are not supported. Got: ' + str(s, 'utf-8'))
 
-    return date(*map(lambda x: int(x), s.split(b'-')))
+    # Value error, year might be over 9999
+    return date(*map(lambda x: min(int(x), 9999), s.split(b'-')))
 
 ColumnTuple = namedtuple(
     'Column',
@@ -105,7 +106,7 @@ class Column(object):
             ('pos', None),
             ('record', None),
             ('unknown', None),
-            ('bool', lambda s: s == 't'),
+            ('bool', lambda s: 't' == str(s, 'utf-8', unicode_error)),
             ('integer', lambda s: int(s)),
             ('float', lambda s: float(s)),
             ('char', lambda s: str(s, 'utf-8', unicode_error)),
@@ -122,7 +123,7 @@ class Column(object):
         ]
 
     @property
-    def data_types():
+    def data_types(self):
         return map(lambda x: x[0], Column.data_type_conversions())
 
     def __init__(self, col, unicode_error=None):
