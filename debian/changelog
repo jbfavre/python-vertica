@@ -1,3 +1,9 @@
+python-vertica (0.7.1-1) unstable; urgency=medium
+
+  * Import python-vertica_0.7.1.orig.tar.gz
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Tue, 16 May 2017 09:33:39 +0200
+
 python-vertica (0.6.14-1) unstable; urgency=medium
 
   * Import python-vertica_0.6.14.orig.tar.gz
