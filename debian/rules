@@ -6,3 +6,5 @@ export PYBUILD_DISABLE_python2.7=test
 
 %:
 	dh $@ --with python2,python3 --buildsystem=pybuild
+
+override_dh_auto_test:
