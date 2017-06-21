@@ -13,7 +13,7 @@ Build-Depends: python-setuptools (>= 0.6b3),
                python3-all,
                python3-dateutil,
                python3-tz
-Standards-Version: 3.9.8
+Standards-Version: 4.0.0
 Homepage: https://github.com/uber/vertica-python
 Vcs-Git: https://anonscm.debian.org/git/python-modules/packages/python-vertica.git
 Vcs-Browser: https://anonscm.debian.org/cgit/python-modules/packages/python-vertica.git
