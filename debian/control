@@ -17,7 +17,6 @@ Standards-Version: 4.0.0
 Homepage: https://github.com/uber/vertica-python
 Vcs-Git: https://salsa.debian.org/python-team/modules/python-vertica.git
 Vcs-Browser: https://salsa.debian.org/python-team/modules/python-vertica
-X-Python3-Version: >= 3.2
 
 Package: python-vertica
 Architecture: all
