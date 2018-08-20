@@ -1,3 +1,3 @@
 version=3
 opts=filenamemangle=s/.+\/v?(\d\S*)\.tar\.gz/python-vertica-$1\.tar\.gz/ \
-  https://github.com/uber/vertica-python/tags .*/v?(\d\S*)\.tar\.gz
+  https://github.com/vertica/vertica-python/tags .*/v?(\d\S*)\.tar\.gz

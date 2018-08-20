@@ -1,7 +1,8 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: vertica-python
-Upstream-Contact: Alex Kim <alex.kim@uber.com>
-Source: https://github.com/uber/vertica-python
+Source: https://github.com/vertica/vertica-python
+Disclaimer: python-vertica is used to connect to a closed source database.
+ Though it's open source by itself, it can't enter Debian main component.
 
 Files: *
 Copyright: Copyright (c) 2013 Uber Technologies, Inc.
