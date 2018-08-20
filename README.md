@@ -1,6 +1,9 @@
 # vertica-python
 
-[![PyPI version](https://badge.fury.io/py/vertica-python.png)](http://badge.fury.io/py/vertica-python)
+[![PyPI version](https://badge.fury.io/py/vertica-python.svg)](https://badge.fury.io/py/vertica-python)
+[![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](https://opensource.org/licenses/Apache-2.0)
+
+:loudspeaker: 08/14/2018: *vertica-python* becomes Vertica’s first officially supported open source database client, see the blog [here](https://my.vertica.com/blog/vertica-python-becomes-verticas-first-officially-supported-open-source-database-client/).
 
 0.6.x adds python3 support (unicode namedparams support is currently broken in python3, see issue 112)
 
@@ -39,7 +42,7 @@ To install vertica-python with pip (with optional namedparams dependencies):
 
 Source code for vertica-python can be found at:
 
-    http://github.com/uber/vertica-python
+    https://github.com/vertica/vertica-python
 
 
 ## Run unit tests
@@ -58,11 +61,24 @@ http://tox.readthedocs.io
 
 Edit `tox.ini` envlist property to list the version(s) of python you have installed
 
-Run tox:
+Run all tests using tox:
 ```bash
 tox
 ```
 
+Run a test suite on specified python versions:
+
+Run all tests under `test_case.py` on the python versions 2.7 and 3.5
+```bash
+tox -e py27,py35 -- vertica_python/tests/test_cases.py
+```
+
+Run an individual test on specified python versions:
+
+Run the test `test_case` under `test_cases.py` on the python versions 2.7 and 3.5
+```bash
+tox -e py27,py35 -- vertica_python/tests/test_cases.py:TestCaseClass.test_case
+```
 ## Usage
 
 
@@ -271,12 +287,15 @@ cur.fetchone()
 
 ## License
 
-MIT License, please see `LICENSE` for details.
+Apache 2.0 License, please see `LICENSE` for details.
 
+## Contributing guidelines
+
+Have a bug or an idea? Please see `CONTRIBUTING.md` for details.
 
 ## Acknowledgements
 
-Many thanks go to the contributors to the Ruby Vertica gem (https://github.com/sprsquish/vertica), since they did all of the wrestling with Vertica's protocol and have kept the gem updated. They are:
+We would like to thank the contributors to the Ruby Vertica gem (https://github.com/sprsquish/vertica), as this project gave us inspiration and help in understanding Vertica's wire protocol. These contributors are:
 
  * [Matt Bauer](http://github.com/mattbauer)
  * [Jeff Smick](http://github.com/sprsquish)
