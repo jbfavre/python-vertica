@@ -1,3 +1,10 @@
+python-vertica (0.8.0-1) unstable; urgency=medium
+
+  * New upstream version 0.8.0
+  * Update Standards-Version in d/control
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Fri, 28 Sep 2018 09:53:00 +0200
+
 python-vertica (0.7.4-2) unstable; urgency=medium
 
   * New upstream version 0.7.4
