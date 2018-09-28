@@ -128,13 +128,20 @@ def date_parse(s):
     return date(*map(lambda x: min(int(x), 9999), s.split('-')))
 
 
+def time_parse(s):
+    s = as_str(s)
+    if len(s) == 8:
+        return datetime.strptime(s, '%H:%M:%S').time()
+    return datetime.strptime(s, '%H:%M:%S.%f').time()
+
+
 ColumnTuple = namedtuple('Column', ['name', 'type_code', 'display_size', 'internal_size',
                                     'precision', 'scale', 'null_ok'])
 
 
 class Column(object):
     def __init__(self, col, unicode_error=None):
-        self.name = col['name'].decode()
+        self.name = col['name'].decode(UTF_8)
         self.type_code = col['data_type_oid']
         self.display_size = None
         self.internal_size = col['data_type_size']
@@ -185,7 +192,7 @@ class Column(object):
             ('char', lambda s: str(s, encoding=UTF_8, errors=unicode_error)),
             ('varchar', lambda s: str(s, encoding=UTF_8, errors=unicode_error)),
             ('date', date_parse),
-            ('time', None),
+            ('time', time_parse),
             ('timestamp', timestamp_parse),
             ('timestamp_tz', timestamp_tz_parse),
             ('interval', None),
