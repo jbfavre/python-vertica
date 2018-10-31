@@ -1,3 +1,9 @@
+python-vertica (0.8.0-2) unstable; urgency=medium
+
+  * Enable basic autopkgtest
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Wed, 31 Oct 2018 17:26:46 +0100
+
 python-vertica (0.8.0-1) unstable; urgency=medium
 
   * New upstream version 0.8.0
