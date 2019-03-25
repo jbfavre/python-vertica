@@ -39,9 +39,7 @@ from __future__ import print_function, division, absolute_import
 import logging
 import socket
 import ssl
-import os
 import getpass
-import errno
 import uuid
 from struct import unpack
 from collections import deque
@@ -104,7 +102,7 @@ class _AddressList(object):
                            ' must be a host string or a (host, port) tuple')
                 self._logger.error(err_msg)
                 raise TypeError(err_msg)
-        
+
         self._logger.debug('Address list: {0}'.format(list(self.address_deque)))
 
     def _append(self, host, port):
@@ -197,7 +195,7 @@ class Connection(object):
         # Set up connection logger
         logger_name = 'vertica_{0}_{1}'.format(id(self), str(uuid.uuid4())) # must be a unique value
         self._logger = logging.getLogger(logger_name)
-        
+
         if 'log_level' not in self.options and 'log_path' not in self.options:
             # logger is disabled by default
             self._logger.disabled = True
@@ -444,12 +442,8 @@ class Connection(object):
 
         except Exception as e:
             self.close_socket()
-            if str(e) == 'unsupported authentication method: 9':
-                raise errors.ConnectionError(
-                    'Error during authentication. Your password might be expired.')
-            else:
-                # noinspection PyTypeChecker
-                raise_from(errors.ConnectionError, e)
+            self._logger.error(str(e))
+            raise
 
     def close_socket(self):
         try:
@@ -574,10 +568,21 @@ class Connection(object):
 
             if isinstance(message, messages.Authentication):
                 # Password message isn't right format ("incomplete message from client")
-                if message.code != messages.Authentication.OK:
+                if message.code == messages.Authentication.OK:
+                    self._logger.info("User {} successfully authenticated"
+                        .format(self.options['user']))
+                elif message.code == messages.Authentication.CHANGE_PASSWORD:
+                    msg = "The password for user {} has expired".format(self.options['user'])
+                    self._logger.error(msg)
+                    raise errors.ConnectionError(msg)
+                elif message.code == messages.Authentication.PASSWORD_GRACE:
+                    self._logger.warning('The password for user {} will expire soon.'
+                        ' Please consider changing it.'.format(self.options['user']))
+                else:
                     self.write(messages.Password(password, message.code,
                                                  {'user': user,
-                                                  'salt': getattr(message, 'salt', None)}))
+                                                  'salt': getattr(message, 'salt', None),
+                                                  'usersalt': getattr(message, 'usersalt', None)}))
             else:
                 self.process_message(message)
 
