@@ -1,3 +1,9 @@
+python-vertica (0.9.1-1) unstable; urgency=medium
+
+  * New upstream version 0.9.1
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Mon, 25 Mar 2019 12:54:39 +0100
+
 python-vertica (0.9.0-1) unstable; urgency=medium
 
   * New upstream version 0.9.0
