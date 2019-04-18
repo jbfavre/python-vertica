@@ -45,7 +45,7 @@ opts = ReqOpts(None, 'git')
 # version should use the format 'x.x.x' (instead of 'vx.x.x')
 setup(
     name='vertica-python',
-    version='0.9.1',
+    version='0.9.2',
     description='A native Python client for the Vertica database.',
     author='Justin Berka, Alex Kim, Siting Ren',
     author_email='justin.berka@gmail.com, alex.kim@uber.com, sitingren@hotmail.com',
@@ -59,7 +59,6 @@ setup(
         'future',
         'six>=1.10.0'
     ],
-    extras_require={'namedparams': ['psycopg2>=2.5.1']},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
