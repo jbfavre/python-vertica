@@ -212,6 +212,24 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             res_from_cur2 = cur2.fetchall()
             self.assertListOfListsEqual(res_from_cur2, [[2, 'bar']])
 
+    def test_copy_with_closed_file(self):
+        with tempfile.TemporaryFile() as tmpfile, self._connect() as conn:
+            if _os.name != 'posix' or _os.sys.platform == 'cygwin':
+                f = getattr(tmpfile, 'file')
+            else:
+                f = tmpfile
+
+            f.write(b"1,foo\n2,bar")
+            # move rw pointer to top of file
+            f.seek(0)
+
+            cur = conn.cursor()
+            f.close()
+            with self.assertRaisesRegexp(ValueError, 'closed file'):
+                cur.copy("COPY {0} (a, b) FROM STDIN DELIMITER ','".format(self._table),
+                          f)
+            cur.close()
+
     # unit test for #78
     def test_copy_with_data_in_buffer(self):
         with self._connect() as conn:
@@ -240,7 +258,7 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             res = [[]]
             try:
                 cur.copy("COPY non_existing_tab(a, b) FROM STDIN DELIMITER ','", "FAIL")
-            except errors.Error as e:
+            except errors.MissingRelation as e:
                 cur.execute("SELECT 1;")
                 res = cur.fetchall()
 
@@ -259,7 +277,7 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             try:
                 cur.copy("COPY {0} (a, b) FROM STDIN DELIMITER ',' ABORT ON ERROR".format(self._table),
                          "FAIL")
-            except errors.Error as e:
+            except errors.CopyRejected as e:
                 cur.execute("SELECT 1;")
                 res = cur.fetchall()
 
@@ -332,6 +350,11 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             with self.assertRaises(errors.QueryError):
                 cur.execute("SELECT * FROM {0}_fail".format(self._table))
 
+            # generate a user-defined error message
+            err_msg = 'USER GENERATED ERROR: test error'
+            with self.assertRaisesRegexp(errors.QueryError, err_msg):
+                cur.execute("SELECT THROW_ERROR('test error')")
+
             # verify cursor still usable after errors
             cur.execute("SELECT a, b FROM {0} WHERE a = 1".format(self._table))
             res = cur.fetchall()
@@ -353,6 +376,8 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
 
                 # close and reopen cursor
                 cur.close()
+                with self.assertRaisesRegexp(errors.InterfaceError, 'Cursor is closed'):
+                    cur.execute("SELECT 1;")
                 cur = conn.cursor()
 
     def test_format_quote_unicode(self):
@@ -553,6 +578,14 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
             cur.execute("SELECT * FROM {}".format(self._table))
             res = cur.fetchall()
             self.assertListOfListsEqual(res, [values])
+
+    def test_execute_parameters(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            all_chars = u"".join(chr(i) for i in range(1, 128))
+            backslash_data = u"\\backslash\\ \\data\\\\"
+            cur.execute("SELECT :a, :b", parameters={"a": all_chars, "b": backslash_data})
+            self.assertEqual([all_chars, backslash_data], cur.fetchone())
 
 
 class SimpleQueryExecutemanyTestCase(VerticaPythonIntegrationTestCase):

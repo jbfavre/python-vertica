@@ -51,13 +51,6 @@ import six
 from builtins import str
 from six import binary_type, text_type, string_types, BytesIO, StringIO
 
-try:
-    from psycopg2.extensions import QuotedString
-except ImportError:
-    class QuotedString(object):
-        def __init__(self, s):
-            raise ImportError("couldn't import psycopg2.extensions.QuotedString")
-
 from .. import errors
 from ..compat import as_text
 from ..vertica import messages
@@ -122,12 +115,14 @@ class Cursor(object):
         raise errors.NotSupportedError('Cursor.callproc() is not implemented')
 
     def close(self):
-        self._close_prepared_statement()
+        self._logger.info('Close the cursor')
+        if not self.closed():
+            self._close_prepared_statement()
         self._closed = True
 
     def cancel(self):
         if self.closed():
-            raise errors.Error('Cursor is closed')
+            raise errors.InterfaceError('Cursor is closed')
 
         self.connection.close()
 
@@ -136,7 +131,7 @@ class Cursor(object):
         self.operation = operation
 
         if self.closed():
-            raise errors.Error('Cursor is closed')
+            raise errors.InterfaceError('Cursor is closed')
 
         self.flush_to_query_ready()
 
@@ -170,6 +165,9 @@ class Cursor(object):
 
         if not isinstance(seq_of_parameters, (list, tuple)):
             raise TypeError("seq_of_parameters should be list/tuple")
+
+        if self.closed():
+            raise errors.InterfaceError('Cursor is closed')
 
         self.flush_to_query_ready()
         use_prepared = bool(self.connection.options['use_prepared_statements']
@@ -348,7 +346,7 @@ class Cursor(object):
         sql = as_text(sql)
 
         if self.closed():
-            raise errors.Error('Cursor is closed')
+            raise errors.InterfaceError('Cursor is closed')
 
         self.flush_to_query_ready()
 
@@ -454,11 +452,10 @@ class Cursor(object):
         return operation
 
     def format_quote(self, param, is_csv):
-        # TODO Make sure adapt() behaves properly
         if is_csv:
             return u'"{0}"'.format(re.escape(param))
         else:
-            return QuotedString(param.encode(UTF_8, self.unicode_error)).getquoted()
+            return u"'{0}'".format(param.replace(u"'", u"''").replace(u"\\", u"\\\\"))
 
     def _execute_simple_query(self, query):
         """
@@ -482,6 +479,8 @@ class Cursor(object):
         elif isinstance(self._message, messages.RowDescription):
             self.description = [Column(fd, self.unicode_error) for fd in self._message.fields]
             self._message = self.connection.read_message()
+            if isinstance(self._message, messages.ErrorResponse):
+                raise errors.QueryError.from_error_response(self._message, query)
 
     def _error_handler(self, msg):
         self.connection.write(messages.Sync())
