@@ -1,4 +1,4 @@
-# Copyright (c) 2018 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2019 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,6 +38,7 @@ from __future__ import print_function, division, absolute_import
 
 import datetime
 import re
+from uuid import UUID
 
 try:
     from collections import OrderedDict  # python 2.7+ / 3
@@ -72,7 +73,7 @@ RE_NAME = u'(("{0}")|({0}))'.format(RE_NAME_BASE)
 RE_BASIC_INSERT_STAT = (
     u"INSERT\\s+INTO\\s+(?P<target>({0}\\.)?{0})"
     u"\\s*\\(\\s*(?P<variables>{0}(\\s*,\\s*{0})*)\\s*\\)"
-    u"\\s+VALUES\\s*\\(\\s*(?P<values>.*)\\s*\\)").format(RE_NAME)
+    u"\\s+VALUES\\s*\\(\\s*(?P<values>(.|\\s)*)\\s*\\)").format(RE_NAME)
 END_OF_RESULT_RESPONSES = (messages.CommandComplete, messages.PortalSuspended)
 
 class Cursor(object):
@@ -200,9 +201,12 @@ class Cursor(object):
                                  for parameters in seq_of_parameters]
                 data = "\n".join(seq_of_values)
 
+                copy_autocommit = self.connection.parameters.get('auto_commit', 'on')
+
                 copy_statement = (
                     u"COPY {0} ({1}) FROM STDIN DELIMITER ',' ENCLOSED BY '\"' "
-                    u"ENFORCELENGTH ABORT ON ERROR").format(target, variables)
+                    u"ENFORCELENGTH ABORT ON ERROR{2}").format(target, variables,
+                    " NO COMMIT" if copy_autocommit == 'off' else '')
 
                 self.copy(copy_statement, data)
             else:
@@ -359,6 +363,7 @@ class Cursor(object):
         else:
             raise TypeError("Not valid type of data {0}".format(type(data)))
 
+        self._logger.info(u'Execute COPY statement: [{}]'.format(sql))
         self.connection.write(messages.Query(sql))
 
         while True:
@@ -415,9 +420,9 @@ class Cursor(object):
                     key = str(key)
                 key = as_text(key)
 
-                if isinstance(param, string_types):
+                if isinstance(param, (string_types, bytes)):
                     param = self.format_quote(as_text(param), is_csv)
-                elif isinstance(param, (datetime.datetime, datetime.date, datetime.time)):
+                elif isinstance(param, (datetime.datetime, datetime.date, datetime.time, UUID)):
                     param = self.format_quote(as_text(str(param)), is_csv)
                 elif param is None:
                     param = '' if is_csv else NULL
@@ -433,9 +438,9 @@ class Cursor(object):
         elif isinstance(parameters, (tuple, list)):
             tlist = []
             for param in parameters:
-                if isinstance(param, string_types):
+                if isinstance(param, (string_types, bytes)):
                     param = self.format_quote(as_text(param), is_csv)
-                elif isinstance(param, (datetime.datetime, datetime.date, datetime.time)):
+                elif isinstance(param, (datetime.datetime, datetime.date, datetime.time, UUID)):
                     param = self.format_quote(as_text(str(param)), is_csv)
                 elif param is None:
                     param = '' if is_csv else NULL
