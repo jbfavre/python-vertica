@@ -1,4 +1,4 @@
-# Copyright (c) 2018 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2019 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +37,7 @@ from __future__ import print_function, division, absolute_import
 
 from datetime import date, datetime, time
 from decimal import Decimal
+from uuid import UUID
 import logging
 import os as _os
 import re
@@ -499,6 +500,43 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
                                                datetime(2018, 9, 7, 15, 38, 19, 769000),
                                                date(2018, 9, 7), time(13, 50, 9)]])
 
+    def test_binary_types(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+
+            # create test table
+            cur.execute("""CREATE TABLE {0} (
+                                a binary(1),
+                                b binary(3),
+                                c varbinary
+                            )
+                        """.format(self._table))
+
+            cur.execute("INSERT INTO {0} VALUES (:b, :s1, :s2)".format(self._table),
+                        {'b': b'x', 's1': b'xyz', 's2': 'abcde'})
+            conn.commit()
+
+            cur.execute("SELECT a, b, c FROM {0}".format(self._table))
+            res = cur.fetchall()
+            self.assertListOfListsEqual(res, [[b'x', b'xyz', b'abcde']])
+
+    def test_uuid_type(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            x = UUID('{00010203-0405-0607-0809-0a0b0c0d0e0f}')
+            y = UUID('00000020-0000-0000-0000-100000000000')
+            z = UUID('00100010000000000000000000000000')
+
+            # create test table
+            cur.execute("CREATE TABLE {0} ( a uuid, b uuid, c uuid )".format(self._table))
+            cur.execute("INSERT INTO {0} VALUES (:u1, :u2, :u3)".format(self._table),
+                        {'u1': x, 'u2': y, 'u3': z})
+            conn.commit()
+
+            cur.execute("SELECT a, b, c FROM {0}".format(self._table))
+            res = cur.fetchall()
+            self.assertListOfListsEqual(res, [[str(x), str(y), str(z)]])
+
     # unit test for #74
     def test_nextset(self):
         with self._connect() as conn:
@@ -638,6 +676,20 @@ class SimpleQueryExecutemanyTestCase(VerticaPythonIntegrationTestCase):
 
     def test_executemany_utf8(self):
         self._test_executemany(self._table, [(1, u'a\xfc'), (2, u'bb')])
+
+    # test for #292
+    def test_executemany_autocommit(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute('SET SESSION AUTOCOMMIT TO off')
+            cur.execute('BEGIN')
+            cur.executemany("INSERT INTO {0} (a, b) VALUES (%s, %s)".format(self._table),
+                            ((None, 'foo'), [2, None], [3, 'bar']))
+            cur.execute('ROLLBACK')
+
+            cur.execute("SELECT count(*) FROM {0}".format(self._table))
+            res = cur.fetchone()[0]
+            self.assertEqual(res, 0)
 
     def test_executemany_null(self):
         seq_of_values_1 = ((None, 'foo'), [2, None])
