@@ -1,6 +1,7 @@
 python-vertica (0.9.3-2) UNRELEASED; urgency=medium
 
   * Use debhelper-compat instead of debian/compat.
+  * Bump Standards-Version to 4.4.0.
 
  -- Ondřej Nový <onovy@debian.org>  Fri, 19 Jul 2019 23:56:44 +0200
 
