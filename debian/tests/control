@@ -1,0 +1,9 @@
+Test-Command: set -e ; for py in $(pyversions -r 2>/dev/null) ; do cd "$AUTOPKGTEST_TMP" ; echo "Testing with $py:" ; $py -c "import vertica_python; print vertica_python" ; done
+Depends: python-all, python-vertica
+Restrictions: allow-stderr, superficial
+Features: test-name=autodep8-python2
+
+Test-Command: set -e ; for py in $(py3versions -r 2>/dev/null) ; do cd "$AUTOPKGTEST_TMP" ; echo "Testing with $py:" ; $py -c "import vertica_python; print(vertica_python)" ; done
+Depends: python3-all, python3-vertica
+Restrictions: allow-stderr, superficial
+Features: test-name=autodep8-python3
