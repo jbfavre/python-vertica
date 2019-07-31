@@ -1,3 +1,19 @@
+python-vertica (0.9.4-2) unstable; urgency=medium
+
+  * Enable Salsa CI
+  * Fix autopkgtest
+  * Drop Python 2 support
+  * Update d/tests after Python 2 support drop
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Wed, 31 Jul 2019 14:59:25 +0200
+
+python-vertica (0.9.4-2) unstable; urgency=medium
+
+  * Enable Salsa CI
+  * Drop Python 2 support
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Wed, 31 Jul 2019 14:57:27 +0200
+
 python-vertica (0.9.4-1) unstable; urgency=medium
 
   * New upstream version 0.9.4
