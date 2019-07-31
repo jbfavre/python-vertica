@@ -7,8 +7,8 @@ variables:
 build:
   extends: .build-package
 
-reprotest:
-  extends: .test-reprotest
+#reprotest:
+#  extends: .test-reprotest
 
 lintian:
   extends: .test-lintian
