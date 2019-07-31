@@ -4,25 +4,12 @@ Priority: optional
 Maintainer: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
 Uploaders: Jean Baptiste Favre <debian@jbfavre.org>
 Build-Depends: debhelper-compat (= 12), dh-python,
-               python-all (>= 2.6.6-3), python-setuptools (>= 0.6b3),
                python3-all, python3-setuptools,
-               python-dateutil, python-tz,
                python3-dateutil, python3-tz
 Standards-Version: 4.4.0
 Homepage: https://github.com/vertica/vertica-python
 Vcs-Git: https://salsa.debian.org/python-team/modules/python-vertica.git
 Vcs-Browser: https://salsa.debian.org/python-team/modules/python-vertica
-
-Package: python-vertica
-Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}
-Description: native Python client for the Vertica database
- HP Vertica is a commercial column-oriented database.
- .
- This package provides all the source, examples and documentation you need
- to easily connect to and interact with Vertica.
- .
- This is the Python 2 version of the package.
 
 Package: python3-vertica
 Architecture: all
