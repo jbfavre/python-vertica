@@ -1,3 +1,10 @@
+python-vertica (0.9.4-1) unstable; urgency=medium
+
+  * New upstream version 0.9.4
+  * Set debhelper compatibility level to 12
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Wed, 31 Jul 2019 10:48:37 +0200
+
 python-vertica (0.9.3-2) unstable; urgency=medium
 
   [ Ondřej Nový ]
