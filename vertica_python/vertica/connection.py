@@ -61,7 +61,11 @@ DEFAULT_PORT = 5433
 DEFAULT_PASSWORD = ''
 DEFAULT_LOG_LEVEL = logging.WARNING
 DEFAULT_LOG_PATH = 'vertica_python.log'
-ASCII = 'ascii'
+try:
+    DEFAULT_USER = getpass.getuser()
+except Exception as e:
+    DEFAULT_USER = None
+    print("WARN: Cannot get the login user name: {}".format(str(e)))
 
 
 def connect(**kwargs):
@@ -198,12 +202,12 @@ class Connection(object):
         self.options.setdefault('host', DEFAULT_HOST)
         self.options.setdefault('port', DEFAULT_PORT)
         if 'user' not in self.options:
-            try:
-                self.options['user'] = getpass.getuser()
-            except Exception as e:
-                self._logger.error(
-                    "Failed to set default value for connection 'user': {}".format(str(e)))
-                raise KeyError('Connection option "user" is required')
+            if DEFAULT_USER:
+                self.options['user'] = DEFAULT_USER
+            else:
+                msg = 'Connection option "user" is required'
+                self._logger.error(msg)
+                raise KeyError(msg)
         self.options.setdefault('database', self.options['user'])
         self.options.setdefault('password', DEFAULT_PASSWORD)
         self.options.setdefault('session_label', _generate_session_label())
@@ -232,6 +236,9 @@ class Connection(object):
 
     def __exit__(self, type_, value, traceback):
         try:
+            # get the transaction status
+            if not self.closed():
+                self.cursor().flush_to_query_ready()
             # if there's no outstanding transaction, we can simply close the connection
             if self.transaction_status in (None, 'in_transaction'):
                 return
@@ -487,6 +494,9 @@ class Connection(object):
                 message = BackendMessage.from_type(type_, self.read_bytes(size - 4))
                 self._logger.debug('<= %s', message)
                 self.handle_asynchronous_message(message)
+                # handle transaction status
+                if isinstance(message, messages.ReadyForQuery):
+                    self.transaction_status = message.transaction_status
             except (SystemError, IOError) as e:
                 self.close_socket()
                 # noinspection PyTypeChecker
@@ -516,30 +526,6 @@ class Connection(object):
             self._logger.error(msg)
             raise errors.MessageError(msg)
 
-    def process_message(self, message):
-        if isinstance(message, messages.ErrorResponse):
-            raise errors.ConnectionError(message.error_message())
-        elif isinstance(message, messages.BackendKeyData):
-            self.backend_pid = message.pid
-            self.backend_key = message.key
-        elif isinstance(message, messages.ReadyForQuery):
-            self.transaction_status = message.transaction_status
-        elif isinstance(message, messages.CommandComplete):
-            # TODO: I'm not ever seeing this actually returned by vertica...
-            # if vertica returns a row count, set the rowcount attribute in cursor
-            # if hasattr(message, 'rows'):
-            #     self.cursor.rowcount = message.rows
-            pass
-        elif isinstance(message, messages.EmptyQueryResponse):
-            pass
-        elif isinstance(message, messages.CopyInResponse):
-            pass
-        else:
-            raise errors.MessageError("Unhandled message: {0}".format(message))
-
-        # set last message
-        self._cursor._message = message
-
     def __str__(self):
         safe_options = {key: value for key, value in self.options.items() if key != 'password'}
 
@@ -560,12 +546,13 @@ class Connection(object):
 
     def startup_connection(self):
         # This doesn't handle Unicode usernames or passwords
-        user = self.options['user'].encode(ASCII)
-        database = self.options['database'].encode(ASCII)
-        password = self.options['password'].encode(ASCII)
-        session_label = self.options['session_label'].encode(ASCII)
+        user = self.options['user']
+        database = self.options['database']
+        session_label = self.options['session_label']
+        os_user_name = DEFAULT_USER if DEFAULT_USER else ''
+        password = self.options['password']
 
-        self.write(messages.Startup(user, database, session_label))
+        self.write(messages.Startup(user, database, session_label, os_user_name))
 
         while True:
             message = self.read_message()
@@ -587,8 +574,15 @@ class Connection(object):
                                                  {'user': user,
                                                   'salt': getattr(message, 'salt', None),
                                                   'usersalt': getattr(message, 'usersalt', None)}))
-            else:
-                self.process_message(message)
-
-            if isinstance(message, messages.ReadyForQuery):
+            elif isinstance(message, messages.BackendKeyData):
+                self.backend_pid = message.pid
+                self.backend_key = message.key
+            elif isinstance(message, messages.ReadyForQuery):
                 break
+            elif isinstance(message, messages.ErrorResponse):
+                self._logger.error(message.error_message())
+                raise errors.ConnectionError(message.error_message())
+            else:
+                msg = "Received unexpected startup message: {0}".format(message)
+                self._logger.error(msg)
+                raise errors.MessageError(msg)
