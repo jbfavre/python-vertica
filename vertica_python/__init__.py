@@ -35,7 +35,7 @@
 
 from __future__ import print_function, division, absolute_import
 
-from .vertica.connection import Connection, connect
+from .vertica.connection import Connection, connect, parse_dsn
 
 # Importing exceptions for compatibility with dbapi 2.0.
 # See: PEP 249 - Python Database API 2.0
@@ -51,12 +51,12 @@ __copyright__ = 'Copyright (c) 2018-2019 Micro Focus or one of its affiliates.'
 __license__ = 'Apache 2.0'
 
 __all__ = ['Connection', 'PROTOCOL_VERSION', 'version_info', 'apilevel', 'threadsafety',
-           'paramstyle', 'connect', 'Error', 'Warning', 'DataError', 'DatabaseError',
+           'paramstyle', 'connect', 'parse_dsn', 'Error', 'Warning', 'DataError', 'DatabaseError',
            'IntegrityError', 'InterfaceError', 'InternalError', 'NotSupportedError',
            'OperationalError', 'ProgrammingError']
 
 # The version number of this library.
-version_info = (0, 9, 5)
+version_info = (0, 9, 6)
 __version__ = '.'.join(map(str, version_info))
 
 # The protocol version (3.7) implemented in this library.
