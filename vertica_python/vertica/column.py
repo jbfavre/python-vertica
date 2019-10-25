@@ -41,10 +41,9 @@ from collections import namedtuple
 from datetime import date, datetime
 from decimal import Decimal
 
-import pytz
 # noinspection PyCompatibility,PyUnresolvedReferences
 from builtins import str
-from dateutil import parser
+from dateutil import parser, tz
 
 from .. import errors
 from .. import datatypes
@@ -52,8 +51,6 @@ from ..compat import as_str, as_text
 
 
 YEARS_RE = re.compile(r"^([0-9]+)-")
-
-UTF_8 = 'utf-8'
 
 
 # these methods are bad...
@@ -108,8 +105,8 @@ def timestamp_tz_parse(s):
     # if timezone is simply UTC...
     if s.endswith('+00'):
         # remove time zone
-        ts = timestamp_parse(s[:-3].encode(encoding=UTF_8, errors='strict'))
-        ts = ts.replace(tzinfo=pytz.UTC)
+        ts = timestamp_parse(s[:-3].encode(encoding='utf-8', errors='strict'))
+        ts = ts.replace(tzinfo=tz.tzutc())
         return ts
     # other wise do a real parse (slower)
     return parser.parse(s)
@@ -188,11 +185,11 @@ class Column(object):
             ('pos', None),
             ('record', None),
             ('unknown', None),
-            ('bool', lambda s: 't' == str(s, encoding=UTF_8, errors=unicode_error)),
+            ('bool', lambda s: 't' == str(s, encoding='utf-8', errors=unicode_error)),
             ('integer', lambda s: int(s)),
             ('float', lambda s: float(s)),
-            ('char', lambda s: str(s, encoding=UTF_8, errors=unicode_error)),
-            ('varchar', lambda s: str(s, encoding=UTF_8, errors=unicode_error)),
+            ('char', lambda s: str(s, encoding='utf-8', errors=unicode_error)),
+            ('varchar', lambda s: str(s, encoding='utf-8', errors=unicode_error)),
             ('date', date_parse),
             ('time', time_parse),
             ('timestamp', timestamp_parse),
@@ -200,7 +197,7 @@ class Column(object):
             ('interval', None),
             ('time_tz', None),
             ('numeric',
-             lambda s: Decimal(str(s, encoding=UTF_8, errors=unicode_error))),
+             lambda s: Decimal(str(s, encoding='utf-8', errors=unicode_error))),
             ('bytea', None),
             ('rle_tuple', None),
         ]

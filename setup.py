@@ -45,7 +45,7 @@ opts = ReqOpts(None, 'git')
 # version should use the format 'x.x.x' (instead of 'vx.x.x')
 setup(
     name='vertica-python',
-    version='0.9.5',
+    version='0.9.6',
     description='A native Python client for the Vertica database.',
     author='Justin Berka, Alex Kim, Siting Ren',
     author_email='justin.berka@gmail.com, alex.kim@uber.com, sitingren@hotmail.com',
@@ -55,7 +55,6 @@ setup(
     license="Apache License 2.0",
     install_requires=[
         'python-dateutil>=1.5',
-        'pytz',
         'future',
         'six>=1.10.0'
     ],
@@ -71,6 +70,7 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Topic :: Database",
         "Topic :: Database :: Database Engines/Servers",
         "Operating System :: OS Independent"
