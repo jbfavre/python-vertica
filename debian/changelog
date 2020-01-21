@@ -1,3 +1,13 @@
+python-vertica (0.10.1-1) unstable; urgency=medium
+
+  * Bump Standards-Version
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
+  * Add Rules-Requires-Root in debian/control
+  * New upstream version 0.10.1
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Tue, 21 Jan 2020 10:55:19 +0100
+
 python-vertica (0.9.6-1) unstable; urgency=medium
 
   [ Ondřej Nový ]
