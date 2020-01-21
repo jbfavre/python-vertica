@@ -37,15 +37,19 @@
 from __future__ import print_function, division, absolute_import
 
 import datetime
+import inspect
 import re
-from uuid import UUID
-
-try:
-    from collections import OrderedDict  # python 2.7+ / 3
-except ImportError:
-    from ordereddict import OrderedDict  # python 2.6
-
 from io import IOBase
+from tempfile import NamedTemporaryFile, SpooledTemporaryFile, TemporaryFile
+from uuid import UUID
+from collections import OrderedDict
+
+# _TemporaryFileWrapper is an undocumented implementation detail, so
+# import defensively.
+try:
+    from tempfile import _TemporaryFileWrapper
+except ImportError:
+    _TemporaryFileWrapper = None
 
 import six
 # noinspection PyUnresolvedReferences,PyCompatibility
@@ -58,11 +62,58 @@ from ..vertica import messages
 from ..vertica.column import Column
 
 
+# A note regarding support for temporary files:
+#
+# Since Python 2.6, the tempfile module offers three kinds of temporary
+# files:
+#
+#   * NamedTemporaryFile
+#   * SpooledTemporaryFile
+#   * TemporaryFile
+#
+# NamedTemporaryFile is not a class, but a function that returns
+# an instance of the tempfile._TemporaryFileWrapper class.
+# _TemporaryFileWrapper is a direct subclass of object.
+#
+#   * https://github.com/python/cpython/blob/v3.8.0/Lib/tempfile.py#L546
+#   * https://github.com/python/cpython/blob/v3.8.0/Lib/tempfile.py#L450
+#
+# SpooledTemporaryFile is a class that is a direct subclass of object.
+#
+#   * https://github.com/python/cpython/blob/v3.8.0/Lib/tempfile.py#L623
+#
+# TemporaryFile is a class that is either NamedTemporaryFile or an
+# indirect subclass of io.IOBase, depending on the platform.
+#
+#   * https://bugs.python.org/issue33762
+#   * https://github.com/python/cpython/blob/v3.8.0/Lib/tempfile.py#L552-L555
+#   * https://github.com/python/cpython/blob/v3.8.0/Lib/tempfile.py#L606-L608
+#   * https://github.com/python/cpython/blob/v3.8.0/Lib/tempfile.py#L617-L618
+#
+# As a result, for Python 2.6 and newer, it seems the best way to test
+# for a file-like object inclusive of temporary files is via:
+#
+#   isinstance(obj, (IOBase, SpooledTemporaryFile, _TemporaryFileWrapper))
+
+# Of the following "types", only include those that are classes in
+# file_type so that isinstance(obj, file_type) won't fail. As of Python
+# 3.8 only IOBase, SpooledTemporaryFile and _TemporaryFileWrapper are
+# classes, but if future Python versions implement NamedTemporaryFile
+# and TemporaryFile as classes, the following code should account for
+# that accordingly.
+file_type = tuple(
+    type_ for type_ in [
+        IOBase,
+        NamedTemporaryFile,
+        SpooledTemporaryFile,
+        TemporaryFile,
+        _TemporaryFileWrapper,
+    ]
+    if inspect.isclass(type_)
+)
 if six.PY2:
     # noinspection PyUnresolvedReferences
-    file_type = (IOBase, file)
-elif six.PY3:
-    file_type = (IOBase,)
+    file_type = file_type + (file,)
 
 NULL = "NULL"
 
@@ -92,7 +143,7 @@ class Cursor(object):
         self.error = None
 
         #
-        # dbapi properties
+        # dbapi attributes
         #
         self.description = None
         self.rowcount = -1
@@ -119,12 +170,6 @@ class Cursor(object):
         if not self.closed() and self.prepared_sql:
             self._close_prepared_statement()
         self._closed = True
-
-    def cancel(self):
-        if self.closed():
-            raise errors.InterfaceError('Cursor is closed')
-
-        self.connection.close()
 
     def execute(self, operation, parameters=None, use_prepared_statements=None):
         operation = as_text(operation)
@@ -239,12 +284,6 @@ class Cursor(object):
 
             self._message = self.connection.read_message()
 
-    def iterate(self):
-        row = self.fetchone()
-        while row:
-            yield row
-            row = self.fetchone()
-
     def fetchmany(self, size=None):
         if not size:
             size = self.arraysize
@@ -310,31 +349,21 @@ class Cursor(object):
     #############################################
     # non-dbapi methods
     #############################################
-    def flush_to_query_ready(self):
-        # if the last message isn't empty or ReadyForQuery, read all remaining messages
-        if self._message is None \
-                or isinstance(self._message, messages.ReadyForQuery):
-            return
+    def closed(self):
+        return self._closed or self.connection.closed()
 
-        while True:
-            message = self.connection.read_message()
-            if isinstance(message, messages.ReadyForQuery):
-                self._message = message
-                break
+    def cancel(self):
+        # Cancel is a session-level operation, cursor-level API does not make
+        # sense. Keep this API for backward compatibility.
+        raise errors.NotSupportedError(
+            'Cursor.cancel() is deprecated. Call Connection.cancel() '
+            'to cancel the current database operation.')
 
-    def flush_to_end_of_result(self):
-        # if the last message isn't empty or END_OF_RESULT_RESPONSES,
-        # read messages until it is
-        if (self._message is None or
-            isinstance(self._message, messages.ReadyForQuery) or
-            isinstance(self._message, END_OF_RESULT_RESPONSES)):
-            return
-
-        while True:
-            message = self.connection.read_message()
-            if isinstance(message, END_OF_RESULT_RESPONSES):
-                self._message = message
-                break
+    def iterate(self):
+        row = self.fetchone()
+        while row:
+            yield row
+            row = self.fetchone()
 
     def copy(self, sql, data, **kwargs):
         """
@@ -356,7 +385,7 @@ class Cursor(object):
             stream = BytesIO(data)
         elif isinstance(data, text_type):
             stream = StringIO(data)
-        elif isinstance(data, file_type):
+        elif isinstance(data, file_type) or callable(getattr(data, 'read', None)):
             stream = data
         else:
             raise TypeError("Not valid type of data {0}".format(type(data)))
@@ -383,12 +412,35 @@ class Cursor(object):
         if self.error is not None:
             raise self.error
 
-    def closed(self):
-        return self._closed or self.connection.closed()
-
     #############################################
     # internal
     #############################################
+    def flush_to_query_ready(self):
+        # if the last message isn't empty or ReadyForQuery, read all remaining messages
+        if self._message is None \
+                or isinstance(self._message, messages.ReadyForQuery):
+            return
+
+        while True:
+            message = self.connection.read_message()
+            if isinstance(message, messages.ReadyForQuery):
+                self._message = message
+                break
+
+    def flush_to_end_of_result(self):
+        # if the last message isn't empty or END_OF_RESULT_RESPONSES,
+        # read messages until it is
+        if (self._message is None or
+            isinstance(self._message, messages.ReadyForQuery) or
+            isinstance(self._message, END_OF_RESULT_RESPONSES)):
+            return
+
+        while True:
+            message = self.connection.read_message()
+            if isinstance(message, END_OF_RESULT_RESPONSES):
+                self._message = message
+                break
+
     def row_formatter(self, row_data):
         if self.cursor_type is None:
             return self.format_row_as_array(row_data)
@@ -432,7 +484,7 @@ class Cursor(object):
                 # Using a regex with word boundary to correctly handle params with similar names
                 # such as :s and :start
                 match_str = u":{0}\\b".format(key)
-                operation = re.sub(match_str, value, operation, flags=re.U)
+                operation = re.sub(match_str, lambda _: value, operation, flags=re.U)
 
         elif isinstance(parameters, (tuple, list)):
             tlist = []
@@ -459,7 +511,7 @@ class Cursor(object):
         if is_csv:
             return u'"{0}"'.format(re.escape(param))
         else:
-            return u"'{0}'".format(param.replace(u"'", u"''").replace(u"\\", u"\\\\"))
+            return u"'{0}'".format(param.replace(u"'", u"''"))
 
     def _execute_simple_query(self, query):
         """

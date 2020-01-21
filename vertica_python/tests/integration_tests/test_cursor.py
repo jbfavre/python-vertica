@@ -40,8 +40,11 @@ from decimal import Decimal
 from uuid import UUID
 import logging
 import os as _os
+import pytest
 import re
 import tempfile
+
+from parameterized import parameterized
 
 from .base import VerticaPythonIntegrationTestCase
 from ... import errors
@@ -204,13 +207,53 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             res_from_cur2 = cur2.fetchall()
             self.assertListOfListsEqual(res_from_cur2, [[2, 'bar']])
 
-    def test_copy_with_file(self):
-        with tempfile.TemporaryFile() as tmpfile, self._connect() as conn1, self._connect() as conn2:
-            if _os.name != 'posix' or _os.sys.platform == 'cygwin':
-                f = getattr(tmpfile, 'file')
-            else:
-                f = tmpfile
+    # integration test for #345
+    def test_copy_with_file_like_object(self):
+        class FileWrapper:
+            read = property(lambda self: self.file.read)
+            seek = property(lambda self: self.file.seek)
+            write = property(lambda self: self.file.write)
 
+            def __init__(self, file):
+                self.file = file
+
+        with tempfile.TemporaryFile() as f, self._connect() as conn:
+            wrapped_f = FileWrapper(f)  # object with a read() method
+            wrapped_f.write(b"1,foo\n2,bar")
+            # move rw pointer to top of file
+            wrapped_f.seek(0)
+
+            cur = conn.cursor()
+            cur.copy(
+                "COPY {0} (a, b) FROM STDIN DELIMITER ','".format(self._table),
+                wrapped_f
+            )
+            cur.execute("SELECT * FROM {0} ORDER BY a ASC".format(self._table))
+            res = cur.fetchall()
+            self.assertListOfListsEqual(res, [[1, 'foo'], [2, 'bar']])
+
+    # integration test for #325
+    @parameterized.expand([
+        (tempfile.NamedTemporaryFile,),
+        (tempfile.SpooledTemporaryFile,),
+        (tempfile.TemporaryFile,),
+    ])
+    def test_copy_with_temporary_file(self, temp_file_type):
+        with temp_file_type() as f, self._connect() as conn:
+            f.write(b"1,foo\n2,bar")
+            f.seek(0)
+
+            cur = conn.cursor()
+            cur.copy(
+                "COPY {0} (a, b) FROM STDIN DELIMITER ','".format(self._table),
+                f,
+            )
+            cur.execute("SELECT * FROM {0} ORDER BY a ASC".format(self._table))
+            res = cur.fetchall()
+            self.assertListOfListsEqual(res, [[1, 'foo'], [2, 'bar']])
+
+    def test_copy_with_file(self):
+        with tempfile.TemporaryFile() as f, self._connect() as conn1, self._connect() as conn2:
             f.write(b"1,foo\n2,bar")
             # move rw pointer to top of file
             f.seek(0)
@@ -230,19 +273,14 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             self.assertListOfListsEqual(res_from_cur2, [[2, 'bar']])
 
     def test_copy_with_closed_file(self):
-        with tempfile.TemporaryFile() as tmpfile, self._connect() as conn:
-            if _os.name != 'posix' or _os.sys.platform == 'cygwin':
-                f = getattr(tmpfile, 'file')
-            else:
-                f = tmpfile
-
+        with tempfile.TemporaryFile() as f, self._connect() as conn:
             f.write(b"1,foo\n2,bar")
             # move rw pointer to top of file
             f.seek(0)
 
             cur = conn.cursor()
             f.close()
-            with self.assertRaisesRegexp(ValueError, 'closed file'):
+            with pytest.raises(ValueError, match='closed file'):
                 cur.copy("COPY {0} (a, b) FROM STDIN DELIMITER ','".format(self._table),
                           f)
             cur.close()
@@ -369,7 +407,7 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
 
             # generate a user-defined error message
             err_msg = 'USER GENERATED ERROR: test error'
-            with self.assertRaisesRegexp(errors.QueryError, err_msg):
+            with pytest.raises(errors.QueryError, match=err_msg):
                 cur.execute("SELECT THROW_ERROR('test error')")
 
             # verify cursor still usable after errors
@@ -393,7 +431,7 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
 
                 # close and reopen cursor
                 cur.close()
-                with self.assertRaisesRegexp(errors.InterfaceError, 'Cursor is closed'):
+                with pytest.raises(errors.InterfaceError, match='Cursor is closed'):
                     cur.execute("SELECT 1;")
                 cur = conn.cursor()
 
@@ -550,8 +588,8 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
             conn.commit()
 
             cur.execute("SELECT a, b, c FROM {0}".format(self._table))
-            res = cur.fetchall()
-            self.assertListOfListsEqual(res, [[str(x), str(y), str(z)]])
+            res = cur.fetchall()[0]
+            self.assertListEqual([str(i) for i in res], [str(x), str(y), str(z)])
 
     # unit test for #74
     def test_nextset(self):
@@ -624,7 +662,7 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
             cur.execute("CREATE TABLE {0} (a INT, b VARCHAR)".format(self._table))
             err_msg = 'not all arguments converted during string formatting'
             values = [1, 'aa']
-            with self.assertRaisesRegexp(TypeError, err_msg):
+            with pytest.raises(TypeError, match=err_msg):
                 cur.execute("INSERT INTO {} VALUES (?, ?)".format(self._table), values)
 
             cur.execute("INSERT INTO {} VALUES (?, ?)".format(self._table),
@@ -639,6 +677,14 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
             all_chars = u"".join(chr(i) for i in range(1, 128))
             backslash_data = u"\\backslash\\ \\data\\\\"
             cur.execute("SELECT :a, :b", parameters={"a": all_chars, "b": backslash_data})
+            self.assertEqual([all_chars, backslash_data], cur.fetchone())
+
+    def test_execute_percent_parameters(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            all_chars = u"".join(chr(i) for i in range(1, 128))
+            backslash_data = u"\\backslash\\ \\data\\\\"
+            cur.execute("SELECT %s, %s", parameters=[all_chars, backslash_data])
             self.assertEqual([all_chars, backslash_data], cur.fetchone())
 
 
@@ -730,7 +776,7 @@ class SimpleQueryExecutemanyTestCase(VerticaPythonIntegrationTestCase):
         err_msg = "executemany is implemented for simple INSERT statements only"
         with self._connect() as conn:
             cur = conn.cursor()
-            with self.assertRaisesRegexp(NotImplementedError, err_msg):
+            with pytest.raises(NotImplementedError, match=err_msg):
                 cur.executemany("", [])
 
 
@@ -757,13 +803,13 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
         with self._connect() as conn:
             cur = conn.cursor()
             err_msg = 'The statement being prepared is empty'
-            with self.assertRaisesRegexp(errors.EmptyQueryError, err_msg):
+            with pytest.raises(errors.EmptyQueryError, match=err_msg):
                 cur.execute("")
-            with self.assertRaisesRegexp(errors.EmptyQueryError, err_msg):
+            with pytest.raises(errors.EmptyQueryError, match=err_msg):
                 cur.executemany("", [()])
-            with self.assertRaisesRegexp(errors.EmptyQueryError, err_msg):
+            with pytest.raises(errors.EmptyQueryError, match=err_msg):
                 cur.execute("--select 1")
-            with self.assertRaisesRegexp(errors.EmptyQueryError, err_msg):
+            with pytest.raises(errors.EmptyQueryError, match=err_msg):
                 cur.execute("""
                         /*
                         Test block comment
@@ -775,7 +821,7 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
             cur = conn.cursor()
             query = "select 1; select 2; select 3;"
             err_msg = 'Cannot insert multiple commands into a prepared statement'
-            with self.assertRaisesRegexp(errors.VerticaSyntaxError, err_msg):
+            with pytest.raises(errors.VerticaSyntaxError, match=err_msg):
                 cur.execute(query)
 
     def test_num_of_parameters(self):
@@ -785,11 +831,11 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
             err_msg = 'Invalid number of parameters'
 
             # The number of parameters is less than columns of table
-            with self.assertRaisesRegexp(ValueError, err_msg):
+            with pytest.raises(ValueError, match=err_msg):
                 cur.execute("INSERT INTO {} VALUES (?,?)".format(self._table))
 
             # The number of parameters is greater than columns of table
-            with self.assertRaisesRegexp(ValueError, err_msg):
+            with pytest.raises(ValueError, match=err_msg):
                 cur.execute("INSERT INTO {} VALUES (?,?)".format(self._table), [1, 'foo', 2])
 
             # The number of parameters is equal to columns of table
@@ -806,7 +852,7 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
             cur.execute("CREATE TABLE {} (a int, b varchar)".format(self._table))
             err_msg = 'Syntax error at or near "%"'
             values = [1, 'varchar']
-            with self.assertRaisesRegexp(errors.VerticaSyntaxError, err_msg):
+            with pytest.raises(errors.VerticaSyntaxError, match=err_msg):
                 cur.execute("INSERT INTO {} VALUES (%s, %s)".format(self._table), values)
 
             cur.execute("INSERT INTO {} VALUES (%s, %s)".format(self._table),
@@ -822,7 +868,7 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
             cur.execute("CREATE TABLE {} (a int, b varchar)".format(self._table))
             err_msg = 'Execute parameters should be a list/tuple'
             values = {'a': 1, 'b': 'varchar'}
-            with self.assertRaisesRegexp(TypeError, err_msg):
+            with pytest.raises(TypeError, match=err_msg):
                 cur.execute("INSERT INTO {} VALUES (:a, :b)".format(self._table), values)
 
             cur.execute("INSERT INTO {} VALUES (:a, :b)".format(self._table),
