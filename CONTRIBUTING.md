@@ -56,11 +56,21 @@ Create a new branch for the work with a descriptive name:
 git checkout -b my-fix-branch
 ```
 
-## Step 3: Get the test suite running
+## Step 3: Install dependencies
+
+Install the Python dependencies for development:
+
+```shell
+pip install -r requirements-dev.txt
+```
+
+If you do Kerberos development, you need to install additional [dependencies](README.md#using-kerberos-authentication).
+
+## Step 4: Get the test suite running
 
 *vertica-python* comes with a test suite of its own, in the `vertica_python/tests` directory of the code base. It’s our policy to make sure all tests pass at all times.
 
-We appreciate any and all [contributions to the test suite](#tests)! These tests use a Python module: [nosetests](https://nose.readthedocs.io). You might want to check out the Python documentation for more details.
+We appreciate any and all [contributions to the test suite](#tests)! These tests use a Python module: [pytest](https://docs.pytest.org/en/latest/). You might want to check out the pytest documentation for more details.
 
 There are two types of tests: unit tests and integration tests. Unit tests do simple unit testing of individual classes and functions, which do not require database connection. Integration tests need to connect to a Vertica database to run stuffs, so you must have access to a Vertica database. We recommend using a non-production database, because some tests need the superuser permission to manipulate global settings and potentially break that database. Heres one way to go about it:
 - Download docker kitematic: https://kitematic.com/
@@ -103,51 +113,44 @@ Spin up your Vertica database for integration tests and then config test setting
   $ unset VP_TEST_PASSWORD
   ```
 
-Tox (https://tox.readthedocs.io) is a tool for running those tests in different Python environments. *vertica-python* includes a `tox.ini` file that lists all Python versions we test.
+Tox (https://tox.readthedocs.io) is a tool for running those tests in different Python environments. *vertica-python*
+includes a `tox.ini` file that lists all Python versions we test. Tox is installed with the `requirements-dev.txt`,
+discussed above.
 
-Install tox:
-```shell
-pip install tox
+Edit `tox.ini` envlist property to list the version(s) of Python you have installed. Then you can run the **tox** command from any place in the *vertica-python* source tree. If VP_TEST_LOG_DIR sets to a relative path, it will be in the *vertica-python* directory no matter where you run the **tox** command.
+
+Examples of running tests:
+
+```bash
+# Run all tests using tox:
+tox
+
+# Run tests on specified python versions with `tox -e ENV,ENV`
+tox -e py27,py35
+
+# Run specific tests by filename (e.g.) `test_notice.py`
+tox -- vertica_python/tests/unit_tests/test_notice.py
+
+# Run all unit tests on the python version 3.6:
+tox -e py36 -- -m unit_tests
+
+# Run all integration tests on the python version 3.4 with verbose result outputs:
+tox -e py34 -- -v -m integration_tests
+
+# Run an individual test on specified python versions.
+# e.g.: Run the test `test_error_message` under `test_notice.py` on the python versions 2.7 and 3.5
+tox -e py27,py35 -- vertica_python/tests/unit_tests/test_notice.py::NoticeTestCase::test_error_message
 ```
 
-Edit `tox.ini` envlist property to list the version(s) of Python you have installed.
-Then you can run the **tox** command from any place in the *vertica-python* source tree. If VP_TEST_LOG_DIR sets to a relative path, it will be in the *vertica-python* directory no matter where you run the **tox** command.
+The arguments after the `--` will be substituted everywhere where you specify `{posargs}` in your test *commands* of
+`tox.ini`, which are sent to pytest. See `pytest --help` to see all arguments you can specify after the `--`.
 
-1. Run all tests using tox:
-   ```bash
-   tox
-   ```
+You might also run `pytest` directly, which will evaluate tests in your current Python environment, rather than across
+the Python environments/versions that are enumerated in `tox.ini`.
 
-1. Run a test suite on specified python versions:
-
-   Run all tests under `test_case.py` on the python versions 2.7 and 3.5
-   ```bash
-   tox -e py27,py35 -- vertica_python/tests/integration_tests/test_cases.py
-   ```
-
-1. Run all unit tests on the python version 3.6:
-   ```bash
-   tox -e py36 -- -a unit_tests
-   ```
-
-1. Run all integration tests on the python version 3.4 with verbose result outputs and print any stdout immediately:
-   ```bash
-   tox -e py34 -- -v -s -a integration_tests
-   ```
-
-1. Run an individual test on specified python versions:
-
-   Run the test `test_case` under `test_cases.py` on the python versions 2.7 and 3.5
-   ```bash
-   tox -e py27,py35 -- vertica_python/tests/integration_tests/test_cases.py:TestCaseClass.test_case
-   ```
-
-The arguments after the `--` will be substituted everywhere where you specify `{posargs}` in your test *commands* of `tox.ini`.
-Run `$ nosetests --help` to see all arguments you can specify after the `--`.
 For more usages about [tox](https://tox.readthedocs.io), see the Python documentation.
 
-
-## Step 4: Implement your fix or feature
+## Step 5: Implement your fix or feature
 
 At this point, you're ready to make your changes! Feel free to ask for help; everyone is a beginner at first.
 
@@ -188,7 +191,7 @@ Add appropriate tests for the bug’s or feature's behavior, run the test suite 
  - Tests should be easy for any contributor to run. Contributors may not get complete access to their Vertica database, for example, they may only have a non-admin user with write privileges to a single schema, and the database may not be the latest version. We encourage tests to use only what they need and nothing more.
  - If there are requirements to the database for running a test, the test should adapt to different situations and never report a failure. For example, if a test depends on a multi-node database, it should check the number of DB nodes first, and skip itself when it connects to a single-node database (see helper function `require_DB_nodes_at_least()` in `vertica_python/tests/integration_tests/base.py`).
 
-## Step 5: Push and Rebase
+## Step 6: Push and Rebase
 
 You can publish your work on GitHub just by doing:
 
@@ -210,7 +213,7 @@ git push -f origin my-fix-branch
 ```
 
 
-## Step 6: Make a Pull Request
+## Step 7: Make a Pull Request
 
 When you think your work is ready to be pulled into *vertica-python*, you should create a pull request(PR) at GitHub.
 

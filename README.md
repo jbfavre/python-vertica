@@ -18,18 +18,26 @@ vertica-python has been tested with Vertica 9.1.1 and Python 2.7/3.4/3.5/3.6/3.7
 
 ## Installation
 
-If you're using pip >= 1.4 and you don't already have python-dateutil installed:
-
-    pip install --pre python-dateutil
-
 To install vertica-python with pip:
 
     pip install vertica-python
+
+To install vertica-python from source, run the following command from the root directory:
+
+    python setup.py install
 
 Source code for vertica-python can be found at:
 
     https://github.com/vertica/vertica-python
 
+#### Using Kerberos authentication
+vertica-python has optional Kerberos authentication support for Unix-like systems, which requires you to install the [kerberos](https://pypi.org/project/kerberos/) package:
+
+    pip install kerberos
+
+Note that `kerberos` is a python extension module, which means you need to install `python-dev`. The command depends on the package manager and will look like
+
+    sudo [yum|apt-get|etc] install python-dev
 
 ## Usage
 
@@ -89,7 +97,26 @@ connection = vertica_python.connect(**conn_info)
 
 See more on SSL options [here](https://docs.python.org/3.8/library/ssl.html).
 
-Logging is disabled by default if you do not pass values to both ```log_level``` and ```log_path```.  The default value of ```log_level``` is logging.WARNING. You can find all levels [here](https://docs.python.org/3.8/library/logging.html#logging-levels). The default value of ```log_path``` is 'vertica_python.log', the log file will be in the current execution directory. For example,
+In order to use Kerberos authentication, install [dependencies](#using-kerberos-authentication) first, and it is the user's responsibility to ensure that an Ticket-Granting Ticket (TGT) is available and valid. Whether a TGT is available can be easily determined by running the `klist` command. If no TGT is available, then it first must be obtained by running the `kinit` command or by logging in. You can pass in optional arguments to customize the authentication. The arguments are `kerberos_service_name`, which defaults to "vertica", and `kerberos_host_name`, which defaults to the value of argument `host`. For example,
+
+```python
+import vertica_python
+
+conn_info = {'host': '127.0.0.1',
+             'port': 5433,
+             'user': 'some_user',
+             'password': 'some_password',
+             'database': 'a_database',
+             # The service name portion of the Vertica Kerberos principal
+             'kerberos_service_name': 'vertica_krb',
+             # The instance or host name portion of the Vertica Kerberos principal
+             'kerberos_host_name': 'vcluster.example.com'}
+
+with vertica_python.connect(**conn_info) as conn:
+    # do things
+```
+
+Logging is disabled by default if you do not pass values to both ```log_level``` and ```log_path```.  The default value of ```log_level``` is logging.WARNING. You can find all levels [here](https://docs.python.org/3.8/library/logging.html#logging-levels). The default value of ```log_path``` is 'vertica_python.log', the log file will be in the current execution directory. If ```log_path``` is set to ```None``` no file handler is set, logs will be processed by root handlers. For example,
 
 ```python
 import vertica_python
@@ -125,6 +152,17 @@ conn_info = {'host': '127.0.0.1',
              'log_path': '/home/admin/logs/vClient.log'}
 with vertica_python.connect(**conn_info) as connection:
    # do things
+
+## Example 4: use root handlers to process logs by setting 'log_path' to 'None' 
+conn_info = {'host': '127.0.0.1',
+             'port': 5433,
+             'user': 'some_user',
+             'password': 'some_password',
+             'database': 'a_database',
+             'log_level': logging.DEBUG,
+             'log_path': None}
+with vertica_python.connect(**conn_info) as connection:
+    # do things
 ```
 
 Connection Failover: Supply a list of backup hosts to ```backup_server_node``` for the client to try if the primary host you specify in the connection parameters (```host```, ```port```) is unreachable. Each item in the list should be either a host string (using default port 5433) or a (host, port) tuple. A host can be a host name or an IP address.
@@ -341,8 +379,42 @@ cur = connection.cursor()
 cur.copy("COPY test_copy (id, name) from stdin DELIMITER ',' ",  csv)
 ```
 
-Where `csv` is either a string or a file-like object (specifically, any object with a `read()` method). If using a file, the data is streamed.
+Where `csv` is either a string or a file-like object (specifically, any object with a `read()` method). If using a file, the data is streamed (in chunks of `buffer_size` bytes, which defaults to 128 * 2 ** 10).
 
+```python
+with open("/tmp/binary_file.csv", "rb") as fs:
+    cursor.copy("COPY table(field1, field2) FROM STDIN DELIMITER ',' ENCLOSED BY '\"'",
+                fs, buffer_size=65536)
+```
+
+
+**Cancel the current database operation** :
+
+`Connection.cancel()` interrupts the processing of the current operation. Interrupting query execution will cause the cancelled method to raise a `vertica_python.errors.QueryCanceled`. If no query is being executed, it does nothing. You can call this function from a different thread/process than the one currently executing a database operation.
+
+```python
+from multiprocessing import Process
+import time
+import vertica_python
+
+def cancel_query(connection, timeout=5):
+    time.sleep(timeout)
+    connection.cancel()
+
+with vertica_python.connect(**conn_info) as conn:
+    cur = conn.cursor()
+
+    # Call cancel() from a different process
+    p1 = Process(target=cancel_query, args=(conn,))
+    p1.start()
+
+    try:
+        cur.execute("<Long running query>")
+    except vertica_python.errors.QueryCanceled as e:
+        pass
+
+    p1.join()
+```
 
 
 ## Rowcount oddities
