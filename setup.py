@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +45,7 @@ opts = ReqOpts(None, 'git')
 # version should use the format 'x.x.x' (instead of 'vx.x.x')
 setup(
     name='vertica-python',
-    version='0.10.1',
+    version='0.10.2',
     description='A native Python client for the Vertica database.',
     author='Justin Berka, Alex Kim, Siting Ren',
     author_email='justin.berka@gmail.com, alex.kim@uber.com, sitingren@hotmail.com',
@@ -55,7 +55,6 @@ setup(
     license="Apache License 2.0",
     install_requires=[
         'python-dateutil>=1.5',
-        'future',
         'six>=1.10.0'
     ],
     classifiers=[
