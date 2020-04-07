@@ -5,7 +5,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/vertica-python.svg)](https://www.python.org/downloads/)
 [![Downloads](https://pepy.tech/badge/vertica-python/week)](https://pepy.tech/project/vertica-python)
 
-vertica-python is a native Python adapter for the Vertica (http://www.vertica.com) database.
+*vertica-python* is a native Python client for the Vertica (http://www.vertica.com) database. *vertica-python* is the replacement of the deprecated Python client *vertica_db_client*, which was removed since Vertica server version 9.3.
 
 :loudspeaker: 08/14/2018: *vertica-python* becomes Vertica’s first officially supported open source database client, see the blog [here](https://my.vertica.com/blog/vertica-python-becomes-verticas-first-officially-supported-open-source-database-client/).
 
@@ -13,14 +13,19 @@ Please check out [release notes](https://github.com/vertica/vertica-python/relea
 
 vertica-python is currently in beta stage; it has been tested for functionality and has a very basic test suite. Please use with caution, and feel free to submit issues and/or pull requests (Read up on our [contributing guidelines](#contributing-guidelines)).
 
-vertica-python has been tested with Vertica 9.1.1 and Python 2.7/3.4/3.5/3.6/3.7/3.8.
+vertica-python has been tested with Vertica 9.3.1 and Python 2.7/3.4/3.5/3.6/3.7/3.8.
 
 
 ## Installation
 
 To install vertica-python with pip:
+```bash
+# Latest release version
+pip install vertica-python
 
-    pip install vertica-python
+# Latest commit on master branch
+pip install git+https://github.com/vertica/vertica-python.git@master
+```
 
 To install vertica-python from source, run the following command from the root directory:
 
@@ -95,7 +100,7 @@ connection = vertica_python.connect(**conn_info)
 
 ```
 
-See more on SSL options [here](https://docs.python.org/3.8/library/ssl.html).
+See more on SSL options [here](https://docs.python.org/3/library/ssl.html).
 
 In order to use Kerberos authentication, install [dependencies](#using-kerberos-authentication) first, and it is the user's responsibility to ensure that an Ticket-Granting Ticket (TGT) is available and valid. Whether a TGT is available can be easily determined by running the `klist` command. If no TGT is available, then it first must be obtained by running the `kinit` command or by logging in. You can pass in optional arguments to customize the authentication. The arguments are `kerberos_service_name`, which defaults to "vertica", and `kerberos_host_name`, which defaults to the value of argument `host`. For example,
 
@@ -116,7 +121,7 @@ with vertica_python.connect(**conn_info) as conn:
     # do things
 ```
 
-Logging is disabled by default if you do not pass values to both ```log_level``` and ```log_path```.  The default value of ```log_level``` is logging.WARNING. You can find all levels [here](https://docs.python.org/3.8/library/logging.html#logging-levels). The default value of ```log_path``` is 'vertica_python.log', the log file will be in the current execution directory. If ```log_path``` is set to ```''``` (empty string) or ```None```, no file handler is set, logs will be processed by root handlers. For example,
+Logging is disabled by default if you do not pass values to both ```log_level``` and ```log_path```.  The default value of ```log_level``` is logging.WARNING. You can find all levels [here](https://docs.python.org/3/library/logging.html#logging-levels). The default value of ```log_path``` is 'vertica_python.log', the log file will be in the current execution directory. If ```log_path``` is set to ```''``` (empty string) or ```None```, no file handler is set, logs will be processed by root handlers. For example,
 
 ```python
 import vertica_python
@@ -269,15 +274,75 @@ connection.close()
 ```
 
 
-**Query using named parameters**:
+**Query using named parameters or format parameters**:
 
+vertica-python can automatically convert Python objects to SQL literals: using this feature your code will be more robust and reliable to prevent SQL injection attacks.
+
+Prerequisites: Only SQL literals (i.e. query values) should be bound via these methods: they shouldn’t be used to merge table or field names to the query (_vertica-python_ will try quoting the table name as a string value, generating invalid SQL as it is actually a SQL Identifier). If you need to generate dynamically SQL queries (for instance choosing dynamically a table name) you have to construct the full query yourself.
+
+Variables can be specified with named (__:name__) placeholders.
 ```python
 cur = connection.cursor()
-cur.execute("SELECT * FROM a_table WHERE a = :propA b = :propB", {'propA': 1, 'propB': 'stringValue'})
+data = {'propA': 1, 'propB': 'stringValue'}
+cur.execute("SELECT * FROM a_table WHERE a = :propA AND b = :propB", data)
+# converted into a SQL command similar to: "SELECT * FROM a_table WHERE a = 1 AND b = 'stringValue'"
 
 cur.fetchall()
-# [ [1, 'something'], [2, 'something_else'] ]
+# [ [1, 'stringValue'] ]
 ```
+
+Variables can also be specified with positional format (__%s__) placeholders. The placeholder __must always be a %s__, even if a different placeholder (such as a %d for integers or %f for floats) may look more appropriate. __Never__ use Python string concatenation (+) or string parameters interpolation (%) to pass variables to a SQL query string.
+```python
+cur = connection.cursor()
+data = (1, "O'Reilly")
+cur.execute("SELECT * FROM a_table WHERE a = %s AND b = %s" % data) # WRONG: % operator
+cur.execute("SELECT * FROM a_table WHERE a = %d AND b = %s", data)  # WRONG: %d placeholder
+cur.execute("SELECT * FROM a_table WHERE a = %s AND b = %s", data)  # correct
+# converted into a SQL command similar to: "SELECT * FROM a_table WHERE a = 1 AND b = 'O''Reilly'"
+
+cur.fetchall()
+# [ [1, "O'Reilly"] ]
+```
+
+The placeholder must not be quoted. _vertica-python_ will add quotes where needed.
+```python
+>>> cur.execute("INSERT INTO table VALUES (':propA')", {'propA': "someString"}) # WRONG
+>>> cur.execute("INSERT INTO table VALUES (:propA)", {'propA': "someString"})   # correct
+>>> cur.execute("INSERT INTO table VALUES ('%s')", ("someString",)) # WRONG
+>>> cur.execute("INSERT INTO table VALUES (%s)", ("someString",))   # correct
+```
+
+_vertica-python_ supports default mapping for many standard Python types. It is possible to adapt new Python types to SQL literals via `Cursor.register_sql_literal_adapter(py_class_or_type, adapter_function)` function. Example:
+```python
+class Point(object):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+# Adapter should return a string value
+def adapt_point(point):
+    return "STV_GeometryPoint({},{})".format(point.x, point.y)
+
+cur = conn.cursor()
+cur.register_sql_literal_adapter(Point, adapt_point)
+
+cur.execute("INSERT INTO geom_data (geom) VALUES (%s)", [Point(1.23, 4.56)])
+cur.execute("select ST_asText(geom) from geom_data")
+cur.fetchall()
+# [['POINT (1.23 4.56)']]
+```
+
+To help you debug the binding process during Cursor.execute*(), `Cursor.object_to_sql_literal(py_object)` function can be used to inspect the SQL literal string converted from a Python object.
+```python
+cur = conn.cursor
+cur.object_to_sql_literal("O'Reilly")  # "'O''Reilly'"
+cur.object_to_sql_literal(None)  # "NULL"
+cur.object_to_sql_literal(True)  # "True"
+cur.object_to_sql_literal(Decimal("10.00000"))  # "10.00000"
+cur.object_to_sql_literal(datetime.date(2018, 9, 7))  # "'2018-09-07'"
+cur.object_to_sql_literal(Point(-71.13, 42.36))  # "STV_GeometryPoint(-71.13,42.36)" if you registered in previous step
+```
+
 
 **Query using server-side prepared statements**:
 
