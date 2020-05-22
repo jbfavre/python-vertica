@@ -1,3 +1,10 @@
+python-vertica (0.10.4-1) unstable; urgency=medium
+
+  * Bump dehbelper-compat version
+  * New upstream version 0.10.4
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Fri, 22 May 2020 18:09:45 +0200
+
 python-vertica (0.10.3-1) unstable; urgency=medium
 
   * New upstream version 0.10.3
