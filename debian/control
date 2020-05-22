@@ -3,7 +3,7 @@ Section: contrib/python
 Priority: optional
 Maintainer: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
 Uploaders: Jean Baptiste Favre <debian@jbfavre.org>
-Build-Depends: debhelper-compat (= 12), dh-python,
+Build-Depends: debhelper-compat (= 13), dh-python,
                python3-all, python3-setuptools,
                python3-dateutil, python3-tz
 Standards-Version: 4.5.0
