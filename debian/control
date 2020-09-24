@@ -9,8 +9,8 @@ Build-Depends: debhelper-compat (= 13), dh-python,
 Standards-Version: 4.5.0
 Rules-Requires-Root: no
 Homepage: https://github.com/vertica/vertica-python
-Vcs-Git: https://salsa.debian.org/python-team/modules/python-vertica.git
-Vcs-Browser: https://salsa.debian.org/python-team/modules/python-vertica
+Vcs-Git: https://salsa.debian.org/python-team/packages/python-vertica.git
+Vcs-Browser: https://salsa.debian.org/python-team/packages/python-vertica
 
 Package: python3-vertica
 Architecture: all
