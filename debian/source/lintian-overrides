@@ -1,0 +1,8 @@
+# Do not check upstream doc for long lines
+python-vertica source: very-long-line-length-in-source-file
+
+# Upstream doesn't provide signed tags or releases
+python-vertica source: debian-watch-does-not-check-gpg-signature
+
+# Upstream coverage is light, I know it
+python-vertica source: superficial-tests
