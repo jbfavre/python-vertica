@@ -6,7 +6,7 @@ Uploaders: Jean Baptiste Favre <debian@jbfavre.org>
 Build-Depends: debhelper-compat (= 13), dh-python,
                python3-all, python3-setuptools,
                python3-dateutil, python3-tz
-Standards-Version: 4.6.1.0
+Standards-Version: 4.6.0.1
 Rules-Requires-Root: no
 Homepage: https://github.com/vertica/vertica-python
 Vcs-Git: https://salsa.debian.org/python-team/packages/python-vertica.git
