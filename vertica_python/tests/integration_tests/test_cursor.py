@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -440,13 +440,6 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
                 with pytest.raises(errors.InterfaceError, match='Cursor is closed'):
                     cur.execute("SELECT 1;")
                 cur = conn.cursor()
-
-    def test_format_quote_unicode(self):
-        with self._connect() as conn:
-            cur = conn.cursor()
-            bad_word = u'Fr\xfchst\xfcck'
-            formatted_word = u''.join((u'"', re.escape(bad_word), u'"'))
-            self.assertEqual(formatted_word, cur.format_quote(bad_word, True))
 
     def test_udtype(self):
         poly = "POLYGON ((1 2, 2 3, 3 1, 1 2))"
@@ -986,6 +979,32 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
 
             cur.execute("DROP TABLE IF EXISTS test_loader_rejects CASCADE")
 
+    def test_copy_local_abort_on_error(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute("CREATE TABLE {0} (a INT, b VARCHAR(9))".format(self._table))
+            msg = r"The 12-byte value is too long for type Varchar\(9\), column 2 \(b\)"
+
+            # COPY LOCAL FILE
+            with pytest.raises(errors.CopyRejected, match=msg):
+                cur.execute(
+                    "COPY {} FROM LOCAL '{}' DELIMITER ',' ENFORCELENGTH ABORT ON ERROR"
+                    .format(self._table, self._f3.name))
+            # Must not close the cursor object and able to successfully run queries
+            cur.execute("SELECT 1;")
+            self.assertListOfListsEqual(cur.fetchall(), [[1]])
+
+            # COPY LOCAL STDIN
+            with pytest.raises(errors.CopyRejected, match=msg):
+                cur.execute(
+                    "COPY {} FROM LOCAL STDIN DELIMITER ',' ENFORCELENGTH ABORT ON ERROR"
+                    .format(self._table),
+                    copy_stdin=[open(self._f3.name)])
+            # Must not close the cursor object and able to successfully run queries
+            cur.execute("SELECT 1;")
+            self.assertListOfListsEqual(cur.fetchall(), [[1]])
+
+
 class SimpleQueryExecutemanyTestCase(VerticaPythonIntegrationTestCase):
     def setUp(self):
         super(SimpleQueryExecutemanyTestCase, self).setUp()
@@ -1028,7 +1047,7 @@ class SimpleQueryExecutemanyTestCase(VerticaPythonIntegrationTestCase):
             self.assertIsNone(cur.fetchone())
 
     def test_executemany(self):
-        self._test_executemany(self._table, [(1, 'aa'), (2, 'bb')])
+        self._test_executemany(self._table, [(i, chr(i)) for i in range(0, 128)])
 
     def test_executemany_quoted_path(self):
         table = '.'.join(['"{}"'.format(s.strip('"')) for s in self._table.split('.')])
@@ -1041,7 +1060,7 @@ class SimpleQueryExecutemanyTestCase(VerticaPythonIntegrationTestCase):
     def test_executemany_autocommit(self):
         with self._connect() as conn:
             cur = conn.cursor()
-            cur.execute('SET SESSION AUTOCOMMIT TO off')
+            conn.autocommit = False
             cur.execute('BEGIN')
             cur.executemany("INSERT INTO {0} (a, b) VALUES (%s, %s)".format(self._table),
                             ((None, 'foo'), [2, None], [3, 'bar']))
@@ -1248,8 +1267,8 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
     def test_bind_binary(self):
         values = [b'binary data', b'\\backslash data\\', u'\\backslash data\\',
                   u'\u00f1 encoding', 'raw data', 'long varbinary data', None]
-        expected = [[b'binary data\\000\\000\\000', b'\\\\backslash data\\\\',
-                     b'\\\\backslash data\\\\', b'\\303\\261 encoding',
+        expected = [[b'binary data\x00\x00\x00', b'\\backslash data\\',
+                     b'\\backslash data\\', b'\xc3\xb1 encoding',
                      b'raw data', b'long varbinary data', None]]
         with self._connect() as conn:
             cur = conn.cursor()

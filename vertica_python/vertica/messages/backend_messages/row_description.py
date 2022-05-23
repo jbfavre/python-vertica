@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,7 +92,7 @@ class RowDescription(BackendMessage):
                 pos += len(table_name) + 1
                 table_name = table_name.decode('utf-8')
 
-            field_info = unpack_from("!HBIHHHiH", data, pos)
+            field_info = unpack_from("!HBIhHHiH", data, pos)
             pos += offset
 
             if field_info[1] == 1:
