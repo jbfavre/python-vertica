@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,6 +44,7 @@ import getpass
 import uuid
 from struct import unpack
 from collections import deque, namedtuple
+import random
 
 # noinspection PyCompatibility,PyUnresolvedReferences
 from six import raise_from, string_types, integer_types, PY2
@@ -52,6 +53,11 @@ if PY2:
     from urlparse import urlparse, parse_qs
 else:
     from urllib.parse import urlparse, parse_qs
+
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from typing import Any, Dict, Literal, Optional, Type, Union
+        from typing_extensions import Self
 
 import vertica_python
 from .. import errors
@@ -64,6 +70,7 @@ from ..vertica.log import VerticaLogging
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 5433
 DEFAULT_PASSWORD = ''
+DEFAULT_AUTOCOMMIT = False
 DEFAULT_BACKUP_SERVER_NODE = []
 DEFAULT_KRB_SERVICE_NAME = 'vertica'
 DEFAULT_LOG_LEVEL = logging.WARNING
@@ -76,6 +83,7 @@ except Exception as e:
 
 
 def connect(**kwargs):
+    # type: (Any) -> Connection
     """Opens a new connection to a Vertica database."""
     return Connection(kwargs)
 
@@ -110,7 +118,7 @@ def parse_dsn(dsn):
         elif key == 'backup_server_node':
             continue
         elif key in ('connection_load_balance', 'use_prepared_statements',
-                     'disable_copy_local', 'ssl'):
+                     'disable_copy_local', 'ssl', 'autocommit'):
             lower = value.lower()
             if lower in ('true', 'on', '1'):
                 result[key] = True
@@ -162,7 +170,6 @@ class _AddressList(object):
                            ' must be a host string or a (host, port) tuple')
                 self._logger.error(err_msg)
                 raise TypeError(err_msg)
-
         self._logger.debug('Address list: {0}'.format(list(self.address_deque)))
 
     def _append(self, host, port):
@@ -209,7 +216,8 @@ class _AddressList(object):
                 return entry.data
             else:
                 # DNS resolve a single host name to multiple IP addresses
-                self.address_deque.popleft()
+                self.pop()
+                # keep host and port info for adding address entry to deque once it has been resolved
                 host, port = entry.host, entry.data
                 try:
                     resolved_hosts = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
@@ -218,7 +226,8 @@ class _AddressList(object):
                     continue
 
                 # add resolved addrinfo (AF_INET and AF_INET6 only) to deque
-                for addrinfo in reversed(resolved_hosts):
+                random.shuffle(resolved_hosts)
+                for addrinfo in resolved_hosts:
                     if addrinfo[0] in (socket.AF_INET, socket.AF_INET6):
                         self.address_deque.appendleft(_AddressEntry(
                             host=host, resolved=True, data=addrinfo))
@@ -242,12 +251,14 @@ def _generate_session_label():
 
 class Connection(object):
     def __init__(self, options=None):
+        # type: (Optional[Dict[str, Any]]) -> None
         self.parameters = {}
         self.session_id = None
         self.backend_pid = None
         self.backend_key = None
         self.transaction_status = None
         self.socket = None
+        self.socket_as_file = None
 
         options = options or {}
         self.options = parse_dsn(options['dsn']) if 'dsn' in options else {}
@@ -278,6 +289,7 @@ class Connection(object):
                 raise KeyError(msg)
         self.options.setdefault('database', self.options['user'])
         self.options.setdefault('password', DEFAULT_PASSWORD)
+        self.options.setdefault('autocommit', DEFAULT_AUTOCOMMIT)
         self.options.setdefault('session_label', _generate_session_label())
         self.options.setdefault('backup_server_node', DEFAULT_BACKUP_SERVER_NODE)
         self.options.setdefault('kerberos_service_name', DEFAULT_KRB_SERVICE_NAME)
@@ -307,29 +319,22 @@ class Connection(object):
                      self.options['user'], self.options['database'],
                      self.options['host'], self.options['port']))
         self.startup_connection()
+
+        # Initially, for a new session, autocommit is off
+        if self.options['autocommit']:
+            self.autocommit = True
+
         self._logger.info('Connection is ready')
 
     #############################################
     # supporting `with` statements
     #############################################
     def __enter__(self):
+        # type: () -> Self
         return self
 
     def __exit__(self, type_, value, traceback):
-        try:
-            # get the transaction status
-            if not self.closed():
-                self.cursor().flush_to_query_ready()
-            # if there's no outstanding transaction, we can simply close the connection
-            if self.transaction_status in (None, 'in_transaction'):
-                return
-
-            if type_ is not None:
-                self.rollback()
-            else:
-                self.commit()
-        finally:
-            self.close()
+        self.close()
 
     #############################################
     # dbapi methods
@@ -356,6 +361,7 @@ class Connection(object):
         cur.execute('ROLLBACK;')
 
     def cursor(self, cursor_type=None):
+        # type: (Self, Optional[Union[Literal['list', 'dict'], Type[list[Any]], Type[dict[Any, Any]]]]) -> Cursor
         if self.closed():
             raise errors.ConnectionError('Connection is closed')
 
@@ -369,6 +375,21 @@ class Connection(object):
     #############################################
     # non-dbapi methods
     #############################################
+    @property
+    def autocommit(self):
+        """Read the connection's AUTOCOMMIT setting from cache"""
+        return self.parameters.get('auto_commit', 'off') == 'on'
+
+    @autocommit.setter
+    def autocommit(self, value):
+        """Change the connection's AUTOCOMMIT setting"""
+        if self.autocommit is value:
+            return
+        val = 'on' if value else 'off'
+        cur = self.cursor()
+        cur.execute('SET SESSION AUTOCOMMIT TO {}'.format(val), use_prepared_statements=False)
+        cur.fetchall()   # check for errors and update the cache
+
     def cancel(self):
         """Cancel the current database operation. This can be called from a
            different thread than the one currently executing a database operation.
@@ -410,6 +431,7 @@ class Connection(object):
         self.backend_key = None
         self.transaction_status = None
         self.socket = None
+        self.socket_as_file = None
         self.address_list = _AddressList(self.options['host'], self.options['port'],
                                          self.options['backup_server_node'], self._logger)
 
@@ -435,6 +457,11 @@ class Connection(object):
 
         self.socket = raw_socket
         return self.socket
+
+    def _socket_as_file(self):
+        if self.socket_as_file is None:
+            self.socket_as_file = self._socket().makefile('rb')
+        return self.socket_as_file
 
     def create_socket(self, family):
         """Create a TCP socket object"""
@@ -559,21 +586,27 @@ class Connection(object):
         self._logger.debug('=> %s', message)
         try:
             for data in message.fetch_message():
-                try:
-                    vsocket.sendall(data)
-                except Exception:
-                    self._logger.error("couldn't send message")
-                    raise
-
+                size = 8192 # Max msg size, consistent with how the server works
+                pos = 0
+                while pos < len(data):
+                    sent = vsocket.send(data[pos : pos + size])
+                    if sent == 0:
+                        raise errors.ConnectionError("Couldn't send message: Socket connection broken")
+                    pos += sent
         except Exception as e:
             self.close_socket()
             self._logger.error(str(e))
-            raise
+            if isinstance(e, IOError):
+                raise_from(errors.ConnectionError(str(e)), e)
+            else:
+                raise
 
     def close_socket(self):
         try:
             if self.socket is not None:
                 self._socket().close()
+            if self.socket_as_file is not None:
+                self._socket_as_file().close()
         finally:
             self.reset_values()
 
@@ -673,19 +706,19 @@ class Connection(object):
 
     def read_bytes(self, n):
         if n == 1:
-            result = self._socket().recv(1)
+            result = self._socket_as_file().read(1)
             if not result:
                 raise errors.ConnectionError("Connection closed by Vertica")
             return result
         else:
-            buf = bytearray(n)
-            view = memoryview(buf)
+            buf = b""
             to_read = n
             while to_read > 0:
-                received = self._socket().recv_into(view, to_read)
+                data = self._socket_as_file().read(to_read)
+                received = len(data)
                 if received == 0:
                     raise errors.ConnectionError("Connection closed by Vertica")
-                view = view[received:]
+                buf += data
                 to_read -= received
             return buf
 

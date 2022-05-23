@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,10 +53,12 @@ class ParseDSNTestCase(VerticaPythonUnitTestCase):
 
     def test_boolean_arguments(self):
         dsn = ('vertica://mike@127.0.0.1/db1?connection_load_balance=True&'
-               'use_prepared_statements=0&ssl=false&disable_copy_local=on')
+               'use_prepared_statements=0&ssl=false&disable_copy_local=on&'
+               'autocommit=true')
         expected = {'database': 'db1', 'connection_load_balance': True,
                     'use_prepared_statements': False,  'ssl': False,
-                    'disable_copy_local': True, 'host': '127.0.0.1', 'user': 'mike'}
+                    'disable_copy_local': True, 'autocommit': True,
+                    'host': '127.0.0.1', 'user': 'mike'}
         parsed = parse_dsn(dsn)
         self.assertDictEqual(expected, parsed)
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -130,7 +130,7 @@ BINARY = VerticaType(VerticaType.BINARY, VerticaType.VARBINARY,
 # dbapi: type object used to describe numeric columns
 NUMBER = VerticaType(VerticaType.INT8, VerticaType.FLOAT8, VerticaType.NUMERIC)
 # dbapi: type object used to describe date/time columns
-DATETIME = VerticaType(VerticaType.TIME, VerticaType.TIMETZ,
+DATETIME = VerticaType(VerticaType.DATE, VerticaType.TIME, VerticaType.TIMETZ,
                        VerticaType.TIMESTAMP, VerticaType.TIMESTAMPTZ,
                        VerticaType.INTERVAL, VerticaType.INTERVALYM)
 # dbapi: type object used to describe the "Row ID" column

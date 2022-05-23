@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,6 +59,16 @@ import six
 # noinspection PyUnresolvedReferences,PyCompatibility
 from six import binary_type, text_type, string_types, integer_types, BytesIO, StringIO
 from six.moves import zip
+
+if six.PY3:
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from typing import IO, Any, AnyStr, Callable, Dict, Generator, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
+        from typing_extensions import Self
+        from .connection import Connection
+        from logging import Logger
+        T = TypeVar('T')
 
 from .. import errors, os_utils
 from ..compat import as_text
@@ -123,7 +133,7 @@ if six.PY2:
 RE_NAME_BASE = u"[0-9a-zA-Z_][\\w\\d\\$_]*"
 RE_NAME = u'(("{0}")|({0}))'.format(RE_NAME_BASE)
 RE_BASIC_INSERT_STAT = (
-    u"INSERT\\s+INTO\\s+(?P<target>({0}\\.)?{0})"
+    u"\\s*INSERT\\s+INTO\\s+(?P<target>({0}\\.)?{0})"
     u"\\s*\\(\\s*(?P<variables>{0}(\\s*,\\s*{0})*)\\s*\\)"
     u"\\s+VALUES\\s*\\(\\s*(?P<values>(.|\\s)*)\\s*\\)").format(RE_NAME)
 END_OF_RESULT_RESPONSES = (messages.CommandComplete, messages.PortalSuspended)
@@ -136,6 +146,7 @@ class Cursor(object):
     _insert_statement = re.compile(RE_BASIC_INSERT_STAT, re.U | re.I)
 
     def __init__(self, connection, logger, cursor_type=None, unicode_error=None):
+        # type: (Connection, Logger, Optional[Union[Literal['list', 'dict'], Type[list[Any]], Type[dict[Any, Any]]]], Optional[str]) -> None
         self.connection = connection
         self._logger = logger
         self.cursor_type = cursor_type
@@ -159,6 +170,7 @@ class Cursor(object):
     # supporting `with` statements
     #############################################
     def __enter__(self):
+        # type: () -> Self
         return self
 
     def __exit__(self, type_, value, traceback):
@@ -179,6 +191,7 @@ class Cursor(object):
 
     def execute(self, operation, parameters=None, use_prepared_statements=None,
                 copy_stdin=None, buffer_size=DEFAULT_BUFFER_SIZE):
+        # type: (str, Optional[Union[List[Any], Tuple[Any], Dict[str, Any]]], Optional[bool], Optional[Union[IO[AnyStr], List[IO[AnyStr]]]], int) -> Self
         if self.closed():
             raise errors.InterfaceError('Cursor is closed')
 
@@ -224,6 +237,8 @@ class Cursor(object):
         return self
 
     def executemany(self, operation, seq_of_parameters, use_prepared_statements=None):
+        # type: (str, Sequence[Union[List[Any], Tuple[Any], Dict[str, Any]]], Optional[bool]) -> None
+
         if not isinstance(seq_of_parameters, (list, tuple)):
             raise TypeError("seq_of_parameters should be list/tuple")
 
@@ -265,12 +280,10 @@ class Cursor(object):
                                  for parameters in seq_of_parameters]
                 data = "\n".join(seq_of_values)
 
-                copy_autocommit = self.connection.parameters.get('auto_commit', 'on')
-
                 copy_statement = (
                     u"COPY {0} ({1}) FROM STDIN DELIMITER ',' ENCLOSED BY '\"' "
                     u"ENFORCELENGTH ABORT ON ERROR{2}").format(target, variables,
-                    " NO COMMIT" if copy_autocommit == 'off' else '')
+                    " NO COMMIT" if not self.connection.autocommit else '')
 
                 self.copy(copy_statement, data)
             else:
@@ -278,6 +291,7 @@ class Cursor(object):
                     "executemany is implemented for simple INSERT statements only")
 
     def fetchone(self):
+        # type: () -> Optional[Union[List[Any], OrderedDict[str, Any]]]
         while True:
             if isinstance(self._message, messages.DataRow):
                 if self.rowcount == -1:
@@ -311,6 +325,7 @@ class Cursor(object):
             self._message = self.connection.read_message()
 
     def fetchmany(self, size=None):
+        # type: (Optional[int]) -> List[Union[List[Any], OrderedDict[str, Any]]]
         if not size:
             size = self.arraysize
         results = []
@@ -327,6 +342,7 @@ class Cursor(object):
         return list(self.iterate())
 
     def nextset(self):
+        # type: () -> bool
         """
         Skip to the next available result set, discarding any remaining rows
         from the current result set.
@@ -381,6 +397,7 @@ class Cursor(object):
     # non-dbapi methods
     #############################################
     def closed(self):
+        # type: () -> bool
         return self._closed or self.connection.closed()
 
     def cancel(self):
@@ -391,12 +408,14 @@ class Cursor(object):
             'to cancel the current database operation.')
 
     def iterate(self):
+        # type: () -> Generator[Union[List[Any], OrderedDict[str, Any]], None, None]
         row = self.fetchone()
         while row:
             yield row
             row = self.fetchone()
 
     def copy(self, sql, data, **kwargs):
+        # type: (str, IO[AnyStr], Any) -> None
         """
 
         EXAMPLE:
@@ -461,6 +480,7 @@ class Cursor(object):
         return self.object_to_string(py_obj, False)
 
     def register_sql_literal_adapter(self, obj_type, adapter_func):
+        # type: (T, Callable[[T], str]) -> None
         if not callable(adapter_func):
             raise TypeError("Cannot register this sql literal adapter. The adapter is not callable.")
         self._sql_literal_adapters[obj_type] = adapter_func
@@ -583,7 +603,11 @@ class Cursor(object):
 
     def format_quote(self, param, is_copy_data):
         if is_copy_data:
-            return u'"{0}"'.format(re.escape(param))
+            s = list(param)
+            for i, c in enumerate(param):
+                if c in u'()[]{}?"*+-|^$\\.&~# \t\n\r\v\f':
+                    s[i] = "\\" + c
+            return u'"{0}"'.format(u"".join(s))
         else:
             return u"'{0}'".format(param.replace(u"'", u"''"))
 
@@ -675,7 +699,14 @@ class Cursor(object):
                     self._send_copy_file_data()
                     if not self._read_copy_data_response():
                         break
+        except errors.QueryError:
+            # A server-detected error.
+            # The server issues an ErrorResponse message and a ReadyForQuery message.
+            raise
         except Exception as e:
+            # A client-detected error.
+            # The client terminates COPY LOCAL protocol by sending a CopyError message,
+            # which will cause the COPY SQL statement to fail with an ErrorResponse message.
             tb = sys.exc_info()[2]
             stk = traceback.extract_tb(tb, 1)
             self.connection.write(messages.CopyError(str(e), stk[0]))
@@ -742,6 +773,9 @@ class Cursor(object):
         # another EndOfBatchRequest or CopyDone
         if is_stdin_copy:
             self.connection.write(messages.CopyDone())  # End this copy
+            self._message = self.connection.read_message()
+            if isinstance(self._message, messages.ErrorResponse):
+                raise errors.QueryError.from_error_response(self._message, self.operation)
             return False
 
         # For file copy, peek the next message
@@ -749,8 +783,11 @@ class Cursor(object):
         if isinstance(self._message, messages.LoadFile):
             # Indicate there are more local files to load
             return True
+        elif isinstance(self._message, messages.ErrorResponse):
+            raise errors.QueryError.from_error_response(self._message, self.operation)
         elif not isinstance(self._message, messages.CopyDoneResponse):
-            raise errors.MessageError('Unexpected COPY-LOCAL message: {0}'.format(message))
+            raise errors.MessageError('Unexpected COPY FROM LOCAL state: {}'.format(
+                                      type(self._message).__name__))
         return False
 
     def _error_handler(self, msg):
