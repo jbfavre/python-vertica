@@ -1,3 +1,11 @@
+python-vertica (1.0.5-2) unstable; urgency=medium
+
+  * Convert from git-dpm to patches unapplied format
+  * Fix Standards-Version
+  * Lintian overrides
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Mon, 23 May 2022 14:09:15 +0200
+
 python-vertica (1.0.5-1) unstable; urgency=medium
 
   * Fix Salsa CI
