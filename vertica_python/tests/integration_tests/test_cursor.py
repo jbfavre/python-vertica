@@ -36,6 +36,8 @@
 from __future__ import print_function, division, absolute_import
 
 from datetime import date, datetime, time
+from dateutil.relativedelta import relativedelta
+from dateutil.tz import tzoffset
 from decimal import Decimal
 from io import open
 from uuid import UUID
@@ -465,6 +467,26 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             self.assertEqual(cur.description[0].display_size, 10000)
             self.assertEqual(cur.description[1].display_size, 1000)
 
+    def test_disable_sqldata_converter(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+
+            # Default is False
+            self.assertFalse(cur.disable_sqldata_converter)
+
+            # Set with attribute setter
+            cur.disable_sqldata_converter = True
+            self.assertTrue(cur.disable_sqldata_converter)
+            cur.execute("INSERT INTO {0} (a, b) VALUES (1, 'aa')".format(self._table))
+            cur.execute("INSERT INTO {0} (a, b) VALUES (2, 'bb')".format(self._table))
+            conn.commit()
+            cur.execute("SELECT a, b FROM {0} ORDER BY a ASC".format(self._table))
+            res = cur.fetchall()
+            if conn.options['binary_transfer']:
+                self.assertListOfListsEqual(res,
+                    [[b'\x00\x00\x00\x00\x00\x00\x00\x01', b'aa'], [b'\x00\x00\x00\x00\x00\x00\x00\x02', b'bb']])
+            else:
+                self.assertListOfListsEqual(res, [[b'1', b'aa'], [b'2', b'bb']])
 
 exec(CursorTestCase.createPrepStmtClass())
 
@@ -1254,11 +1276,12 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
     def test_bind_datetime(self):
         with self._connect() as conn:
             cur = conn.cursor()
-            cur.execute("CREATE TABLE {} (a TIMESTAMP, b DATE, c TIME, "
-                        "d TIMESTAMP, e DATE, f TIME)".format(self._table))
+            cur.execute("CREATE TABLE {} (a TIMESTAMP, b DATE, c TIME, d TIMETZ,"
+                        "e TIMESTAMP, f DATE, g TIME, h TIMETZ)".format(self._table))
             values = [datetime(2018, 9, 7, 15, 38, 19, 769000), date(2018, 9, 7),
-                      time(13, 50, 9), None, None, None]
-            cur.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(self._table), values)
+                      time(13, 50, 9), time(22, 36, 33, 123400, tzinfo=tzoffset(None, -19800)),
+                      None, None, None, None]
+            cur.execute("INSERT INTO {} VALUES ({})".format(self._table, ','.join(['?']*8)), values)
             conn.commit()
             cur.execute("SELECT * FROM {}".format(self._table))
             res = cur.fetchall()
@@ -1333,9 +1356,15 @@ class PreparedStatementTestCase(VerticaPythonIntegrationTestCase):
                   '2 days 12 hours 15 mins 1235 milliseconds',
                   '2 days 12 hours 15 mins ago', '2 days 12 hours 15 mins ago',
                   None, None]
-        expected = [[b'1', b'1-2', b'22', b'365', b'-6537150 01:03:06.0051',
-                     b'74', b'01:03', b'8760:15:20', b'15', b'525605:20',
-                     b'216901.24', b'-2 12', b'-2 12:15', None, None]]
+        expected = [[relativedelta(years=+1), relativedelta(years=+1, months=+2),
+                     relativedelta(years=+1, months=+10), relativedelta(days=+365),
+                     relativedelta(days=-6537150, hours=-1, minutes=-3, seconds=-6, microseconds=-5100),
+                     relativedelta(days=+3, hours=+2), relativedelta(hours=+1, minutes=+3),
+                     relativedelta(days=+365, minutes=+15, seconds=+20),
+                     relativedelta(minutes=+15), relativedelta(days=+365, minutes=+5, seconds=+20),
+                     relativedelta(days=+2, hours=+12, minutes=+15, seconds=+1, microseconds=+240000),
+                     relativedelta(days=-2, hours=-12), relativedelta(days=-2, hours=-12, minutes=-15),
+                     None, None]]
         with self._connect() as conn:
             cur = conn.cursor()
             cur.execute("""CREATE TABLE {} (
