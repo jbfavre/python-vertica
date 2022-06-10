@@ -74,6 +74,7 @@ from .. import errors, os_utils
 from ..compat import as_text
 from ..vertica import messages
 from ..vertica.column import Column
+from ..vertica.deserializer import Deserializer
 
 
 # A note regarding support for temporary files:
@@ -158,6 +159,8 @@ class Cursor(object):
         self.prepared_name = "s0"
         self.error = None
         self._sql_literal_adapters = {}
+        self._disable_sqldata_converter = False
+        self._des = Deserializer()
 
         #
         # dbapi attributes
@@ -303,7 +306,10 @@ class Cursor(object):
                 self._message = self.connection.read_message()
                 return row
             elif isinstance(self._message, messages.RowDescription):
-                self.description = [Column(fd, self.unicode_error) for fd in self._message.fields]
+                self.description = [Column(fd) for fd in self._message.fields]
+                self._deserializers = self._des.get_row_deserializers(self.description,
+                                        {'unicode_error': self.unicode_error,
+                                         'session_tz': self.connection.parameters.get('timezone', 'unknown')})
             elif isinstance(self._message, messages.ReadyForQuery):
                 return None
             elif isinstance(self._message, END_OF_RESULT_RESPONSES):
@@ -360,7 +366,10 @@ class Cursor(object):
             # there might be another set, read next message to find out
             self._message = self.connection.read_message()
             if isinstance(self._message, messages.RowDescription):
-                self.description = [Column(fd, self.unicode_error) for fd in self._message.fields]
+                self.description = [Column(fd) for fd in self._message.fields]
+                self._deserializers = self._des.get_row_deserializers(self.description,
+                                        {'unicode_error': self.unicode_error,
+                                         'session_tz': self.connection.parameters.get('timezone', 'unknown')})
                 self._message = self.connection.read_message()
                 if isinstance(self._message, messages.VerifyFiles):
                     self._handle_copy_local_protocol()
@@ -485,6 +494,18 @@ class Cursor(object):
             raise TypeError("Cannot register this sql literal adapter. The adapter is not callable.")
         self._sql_literal_adapters[obj_type] = adapter_func
 
+    @property
+    def disable_sqldata_converter(self):
+        return self._disable_sqldata_converter
+
+    @disable_sqldata_converter.setter
+    def disable_sqldata_converter(self, value):
+        """By default, the client does data conversions for query results:
+        reading a bytes sequence from server and creating a Python object out of it.
+        If set to True, bypass conversions from SQL type raw data to the native Python object
+        """
+        self._disable_sqldata_converter = bool(value)
+
     #############################################
     # internal
     #############################################
@@ -528,14 +549,19 @@ class Cursor(object):
             raise TypeError('Unrecognized cursor_type: {0}'.format(self.cursor_type))
 
     def format_row_as_dict(self, row_data):
+        if self._disable_sqldata_converter:
+            return OrderedDict((descr.name, value)
+                    for descr, value in zip(self.description, row_data.values))
         return OrderedDict(
-            (descr.name, descr.convert(value))
-            for descr, value in zip(self.description, row_data.values)
+            (descr.name, convert(value))
+            for descr, convert, value in zip(self.description, self._deserializers, row_data.values)
         )
 
     def format_row_as_array(self, row_data):
-        return [descr.convert(value)
-                for descr, value in zip(self.description, row_data.values)]
+        if self._disable_sqldata_converter:
+            return row_data.values
+        return [convert(value)
+                for convert, value in zip(self._deserializers, row_data.values)]
 
     def object_to_string(self, py_obj, is_copy_data):
         """Return the SQL representation of the object as a string"""
@@ -631,7 +657,10 @@ class Cursor(object):
         if isinstance(self._message, messages.ErrorResponse):
             raise errors.QueryError.from_error_response(self._message, query)
         elif isinstance(self._message, messages.RowDescription):
-            self.description = [Column(fd, self.unicode_error) for fd in self._message.fields]
+            self.description = [Column(fd) for fd in self._message.fields]
+            self._deserializers = self._des.get_row_deserializers(self.description,
+                                    {'unicode_error': self.unicode_error,
+                                     'session_tz': self.connection.parameters.get('timezone', 'unknown')})
             self._message = self.connection.read_message()
             if isinstance(self._message, messages.ErrorResponse):
                 raise errors.QueryError.from_error_response(self._message, query)
@@ -821,7 +850,10 @@ class Cursor(object):
         if isinstance(self._message, messages.NoData):
             self.description = None  # response was NoData for a DDL/transaction PreparedStatement
         else:
-            self.description = [Column(fd, self.unicode_error) for fd in self._message.fields]
+            self.description = [Column(fd) for fd in self._message.fields]
+            self._deserializers = self._des.get_row_deserializers(self.description,
+                                    {'unicode_error': self.unicode_error,
+                                     'session_tz': self.connection.parameters.get('timezone', 'unknown')})
 
         # Read expected message: CommandDescription
         self._message = self.connection.read_expected_message(messages.CommandDescription, self._error_handler)
@@ -858,7 +890,8 @@ class Cursor(object):
                            .format(parameter_values, len(parameter_values), parameter_count))
                     raise ValueError(msg)
                 self.connection.write(messages.Bind(portal_name, self.prepared_name,
-                                             parameter_values, parameter_type_oids))
+                                             parameter_values, parameter_type_oids,
+                                             self.connection.options['binary_transfer']))
                 self.connection.write(messages.Execute(portal_name, 0))
             self.connection.write(messages.Sync())
         except Exception as e:
