@@ -1,3 +1,9 @@
+python-vertica (1.1.0-2) unstable; urgency=medium
+
+  * Disable autopkgtest-pkg-python in d/control. Only rely on custom one
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Mon, 13 Jun 2022 09:20:48 +0200
+
 python-vertica (1.1.0-1) unstable; urgency=medium
 
   * Add Testsuite to d/control
