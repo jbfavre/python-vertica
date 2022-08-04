@@ -1,3 +1,11 @@
+python-vertica (1.1.1-1) unstable; urgency=medium
+
+  * Improve CI keeping only relevant bits
+  * Update d/salsa-ci.yml to remove allowed failure for reprotest
+  * New upstream version 1.1.1
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Thu, 04 Aug 2022 17:13:31 +0200
+
 python-vertica (1.1.0-2) unstable; urgency=medium
 
   * Disable autopkgtest-pkg-python in d/control. Only rely on custom one
