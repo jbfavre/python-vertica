@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2022-2023 Micro Focus or one of its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,17 @@
 
 from __future__ import print_function, division, absolute_import
 
+import json
 import re
 from datetime import date, datetime, time, timedelta
 from dateutil import tz
 from dateutil.relativedelta import relativedelta
 from decimal import Context, Decimal
-from six import PY2
 from struct import unpack
 from uuid import UUID
-if PY2:
-    from binascii import hexlify
 
 from .. import errors
-from ..compat import as_str
+from ..compat import as_str, as_bytes
 from ..datatypes import VerticaType
 from ..vertica.column import FormatCode
 
@@ -47,9 +45,7 @@ class Deserializer(object):
         def deserializer(data):
             if data is None: # null
                 return None
-            return f(data, ctx={'column': col,
-                                'unicode_error': context['unicode_error'],
-                                'session_tz': context['session_tz']})
+            return f(data, ctx={'column': col, **context})
         return deserializer
 
 
@@ -92,21 +88,6 @@ def load_float8_binary(val, ctx):
     """
     return unpack("!d", val)[0]
 
-def _int_from_bytes(val):
-    """
-    (Python 2) Convert big-endian signed integer bytes to int.
-    """
-    b = bytearray(val)
-    if len(b) == 0:
-      return 0
-    sign_set = b[0] & 0x80
-    b[0] &= 0x7f  # skip sign bit for negative number
-    n = int(hexlify(b), 16)
-    if sign_set: # if sign bit is set, 2's complement
-        offset = 2**(8 * len(b) - 1)
-        return n - offset
-    return n
-
 def load_numeric_binary(val, ctx):
     """
     Parses binary representation of a NUMERIC type.
@@ -116,10 +97,7 @@ def load_numeric_binary(val, ctx):
     """
     # N-byte signed integer represents the unscaled value of the numeric
     # N is roughly (precision//19+1)*8
-    if PY2:
-        unscaledVal = _int_from_bytes(val)
-    else:
-        unscaledVal = int.from_bytes(val, byteorder='big', signed=True)
+    unscaledVal = int.from_bytes(val, byteorder='big', signed=True)
     precision = ctx['column'].precision
     scale = ctx['column'].scale
     # The numeric value is (unscaledVal * 10^(-scale))
@@ -130,7 +108,7 @@ def load_varchar_text(val, ctx):
     Parses text/binary representation of a CHAR / VARCHAR / LONG VARCHAR type.
     :param val: bytes
     :param ctx: dict
-    :return: (PY2) unicode / (PY3) str
+    :return: str
     """
     return val.decode('utf-8', ctx['unicode_error'])
 
@@ -445,6 +423,7 @@ def load_varbinary_text(s, ctx):
     :param ctx: dict
     :return: bytes
     """
+    s = as_bytes(s)
     buf = []
     i = 0
     while i < len(s):
@@ -452,17 +431,118 @@ def load_varbinary_text(s, ctx):
         if c == b'\\':
             c2 = s[i+1: i+2]
             if c2 == b'\\':  # escaped \
-                if PY2: c = str(c)
                 i += 2
             else:   # A \xxx octal string
-                c = chr(int(str(s[i+1: i+4]), 8)) if PY2 else bytes([int(s[i+1: i+4], 8)])
+                c = bytes([int(s[i+1: i+4], 8)])
                 i += 4
         else:
-            if PY2: c = str(c)
             i += 1
         buf.append(c)
     return b''.join(buf)
 
+def load_array_text(val, ctx):
+    """
+    Parses text/binary representation of an ARRAY type.
+    :param val: bytes
+    :param ctx: dict
+    :return: list
+    """
+    val = val.decode('utf-8', ctx['unicode_error'])
+    # Some old servers have a bug of sending ARRAY oid without child metadata
+    if not ctx['complex_types_enabled']:
+        return val
+    json_data = json.loads(val)
+    return parse_array(json_data, ctx)
+
+def load_set_text(val, ctx):
+    """
+    Parses text/binary representation of a SET type.
+    :param val: bytes
+    :param ctx: dict
+    :return: set
+    """
+    return set(load_array_text(val, ctx))
+
+def parse_array(json_data, ctx):
+    if not isinstance(json_data, list):
+        raise TypeError('Expected a list, got {}'.format(json_data))
+    # An array has only one child, all elements in the array are the same type.
+    child_ctx = ctx.copy()
+    child_ctx['column'] = ctx['column'].child_columns[0]
+
+    # Shortcut: return data parsed by the default JSONDecoder
+    if child_ctx['column'].type_code in (VerticaType.BOOL, VerticaType.INT8,
+                    VerticaType.CHAR, VerticaType.VARCHAR, VerticaType.LONGVARCHAR):
+        return json_data
+
+    parsed_array = [None] * len(json_data)
+    for idx, element in enumerate(json_data):
+        if element is None:
+            continue
+        parsed_array[idx] = parse_json_element(element, child_ctx)
+    return parsed_array
+
+def load_row_text(val, ctx):
+    """
+    Parses text/binary representation of a ROW type.
+    :param val: bytes
+    :param ctx: dict
+    :return: dict
+    """
+    val = val.decode('utf-8', ctx['unicode_error'])
+    # Some old servers have a bug of sending ROW oid without child metadata
+    if not ctx['complex_types_enabled']:
+        return val
+    json_data = json.loads(val)
+    return parse_row(json_data, ctx)
+
+def parse_row(json_data, ctx):
+    if not isinstance(json_data, dict):
+        raise TypeError('Expected a dict, got {}'.format(json_data))
+    # A row has one or more child fields
+    child_columns = ctx['column'].child_columns
+    if child_columns is None:   # Special case: SELECT ROW();
+        return json_data
+    if len(json_data) != len(child_columns): # This situation should never occur
+        raise ValueError('The metadata does not match the fields in the ROW.')
+    parsed_row = {}
+    for child_column in child_columns:
+        key = child_column.name
+        element = json_data[key]
+        if element is None:
+            parsed_row[key] = None
+            continue
+        child_ctx = ctx.copy()
+        child_ctx['column'] = child_column
+        parsed_row[key] = parse_json_element(element, child_ctx)
+    return parsed_row
+
+def parse_json_element(element, ctx):
+    type_code = ctx['column'].type_code
+    if type_code in (VerticaType.BOOL, VerticaType.INT8,
+                     VerticaType.CHAR, VerticaType.VARCHAR, VerticaType.LONGVARCHAR):
+        return element
+    # "-Infinity", "Infinity", "NaN"
+    if type_code == VerticaType.FLOAT8:
+        return float(element)
+    # element type: str
+    if type_code in (VerticaType.DATE, VerticaType.TIME, VerticaType.TIMETZ,
+                     VerticaType.TIMESTAMP, VerticaType.TIMESTAMPTZ,
+                     VerticaType.INTERVAL, VerticaType.INTERVALYM,
+                     VerticaType.BINARY, VerticaType.VARBINARY,
+                     VerticaType.LONGVARBINARY):
+        return DEFAULTS[FormatCode.TEXT][type_code](element, ctx)
+    elif type_code == VerticaType.NUMERIC:
+        return Decimal(element)
+    elif type_code == VerticaType.UUID:
+        return UUID(element)
+    # element type: list
+    elif type_code == VerticaType.ARRAY:
+        return parse_array(element, ctx)
+    # element type: dict
+    elif type_code == VerticaType.ROW:
+        return parse_row(element, ctx)
+    return element
 
 DEFAULTS = {
     FormatCode.TEXT: {
@@ -485,6 +565,45 @@ DEFAULTS = {
         VerticaType.BINARY: load_varbinary_text,
         VerticaType.VARBINARY: load_varbinary_text,
         VerticaType.LONGVARBINARY: load_varbinary_text,
+        VerticaType.ARRAY: load_array_text,
+        VerticaType.ARRAY1D_BOOL: load_array_text,
+        VerticaType.ARRAY1D_INT8: load_array_text,
+        VerticaType.ARRAY1D_FLOAT8: load_array_text,
+        VerticaType.ARRAY1D_NUMERIC: load_array_text,
+        VerticaType.ARRAY1D_CHAR: load_array_text,
+        VerticaType.ARRAY1D_VARCHAR: load_array_text,
+        VerticaType.ARRAY1D_LONGVARCHAR: load_array_text,
+        VerticaType.ARRAY1D_DATE: load_array_text,
+        VerticaType.ARRAY1D_TIME: load_array_text,
+        VerticaType.ARRAY1D_TIMETZ: load_array_text,
+        VerticaType.ARRAY1D_TIMESTAMP: load_array_text,
+        VerticaType.ARRAY1D_TIMESTAMPTZ: load_array_text,
+        VerticaType.ARRAY1D_INTERVAL: load_array_text,
+        VerticaType.ARRAY1D_INTERVALYM: load_array_text,
+        VerticaType.ARRAY1D_UUID: load_array_text,
+        VerticaType.ARRAY1D_BINARY: load_array_text,
+        VerticaType.ARRAY1D_VARBINARY: load_array_text,
+        VerticaType.ARRAY1D_LONGVARBINARY: load_array_text,
+        VerticaType.SET_BOOL: load_set_text,
+        VerticaType.SET_INT8: load_set_text,
+        VerticaType.SET_FLOAT8: load_set_text,
+        VerticaType.SET_CHAR: load_set_text,
+        VerticaType.SET_VARCHAR: load_set_text,
+        VerticaType.SET_DATE: load_set_text,
+        VerticaType.SET_TIME: load_set_text,
+        VerticaType.SET_TIMESTAMP: load_set_text,
+        VerticaType.SET_TIMESTAMPTZ: load_set_text,
+        VerticaType.SET_TIMETZ: load_set_text,
+        VerticaType.SET_INTERVAL: load_set_text,
+        VerticaType.SET_INTERVALYM: load_set_text,
+        VerticaType.SET_NUMERIC: load_set_text,
+        VerticaType.SET_VARBINARY: load_set_text,
+        VerticaType.SET_UUID: load_set_text,
+        VerticaType.SET_BINARY: load_set_text,
+        VerticaType.SET_LONGVARCHAR: load_set_text,
+        VerticaType.SET_LONGVARBINARY: load_set_text,
+        VerticaType.ROW: load_row_text,
+        VerticaType.MAP: load_row_text,
     },
     FormatCode.BINARY: {
         VerticaType.UNKNOWN: None,
@@ -506,6 +625,45 @@ DEFAULTS = {
         VerticaType.BINARY: None,
         VerticaType.VARBINARY: None,
         VerticaType.LONGVARBINARY: None,
+        VerticaType.ARRAY: load_array_text,
+        VerticaType.ARRAY1D_BOOL: load_array_text,
+        VerticaType.ARRAY1D_INT8: load_array_text,
+        VerticaType.ARRAY1D_FLOAT8: load_array_text,
+        VerticaType.ARRAY1D_NUMERIC: load_array_text,
+        VerticaType.ARRAY1D_CHAR: load_array_text,
+        VerticaType.ARRAY1D_VARCHAR: load_array_text,
+        VerticaType.ARRAY1D_LONGVARCHAR: load_array_text,
+        VerticaType.ARRAY1D_DATE: load_array_text,
+        VerticaType.ARRAY1D_TIME: load_array_text,
+        VerticaType.ARRAY1D_TIMETZ: load_array_text,
+        VerticaType.ARRAY1D_TIMESTAMP: load_array_text,
+        VerticaType.ARRAY1D_TIMESTAMPTZ: load_array_text,
+        VerticaType.ARRAY1D_INTERVAL: load_array_text,
+        VerticaType.ARRAY1D_INTERVALYM: load_array_text,
+        VerticaType.ARRAY1D_UUID: load_array_text,
+        VerticaType.ARRAY1D_BINARY: load_array_text,
+        VerticaType.ARRAY1D_VARBINARY: load_array_text,
+        VerticaType.ARRAY1D_LONGVARBINARY: load_array_text,
+        VerticaType.SET_BOOL: load_set_text,
+        VerticaType.SET_INT8: load_set_text,
+        VerticaType.SET_FLOAT8: load_set_text,
+        VerticaType.SET_CHAR: load_set_text,
+        VerticaType.SET_VARCHAR: load_set_text,
+        VerticaType.SET_DATE: load_set_text,
+        VerticaType.SET_TIME: load_set_text,
+        VerticaType.SET_TIMESTAMP: load_set_text,
+        VerticaType.SET_TIMESTAMPTZ: load_set_text,
+        VerticaType.SET_TIMETZ: load_set_text,
+        VerticaType.SET_INTERVAL: load_set_text,
+        VerticaType.SET_INTERVALYM: load_set_text,
+        VerticaType.SET_NUMERIC: load_set_text,
+        VerticaType.SET_VARBINARY: load_set_text,
+        VerticaType.SET_UUID: load_set_text,
+        VerticaType.SET_BINARY: load_set_text,
+        VerticaType.SET_LONGVARCHAR: load_set_text,
+        VerticaType.SET_LONGVARBINARY: load_set_text,
+        VerticaType.ROW: load_row_text,
+        VerticaType.MAP: load_row_text,
     },
 }
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,10 +43,7 @@ from ..message import BulkFrontendMessage
 from ..backend_messages.authentication import Authentication
 from ....compat import as_bytes
 
-if os.name == 'nt':
-    from . import crypt_windows as crypt
-else:
-    import crypt
+from . import crypt_windows as crypt
 
 
 class Password(BulkFrontendMessage):

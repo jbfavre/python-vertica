@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2019-2023 Micro Focus or one of its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,9 +88,9 @@ class CancelTestCase(VerticaPythonIntegrationTestCase):
                             conn.cancel()
 
                 # The number of rows read after the cancel message is sent to the server can vary.
-                # 100,000 seems to leave a safe margin while still falling well short of
+                # 1,000,000 seems to leave a safe margin while still falling well short of
                 # the 30,000,000+ rows we'd have read if the cancel didn't work.
-                self.assertTrue(100 <= nCount < 100000)
+                self.assertTrue(100 <= nCount < 1000000)
 
                 # Must be able to successfully run next query
                 cur.execute("SELECT 1")

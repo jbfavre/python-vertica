@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +43,7 @@ import re
 import sys
 import traceback
 from decimal import Decimal
-from io import IOBase
+from io import IOBase, BytesIO, StringIO
 from tempfile import NamedTemporaryFile, SpooledTemporaryFile, TemporaryFile
 from uuid import UUID
 from collections import OrderedDict
@@ -55,20 +55,13 @@ try:
 except ImportError:
     _TemporaryFileWrapper = None
 
-import six
-# noinspection PyUnresolvedReferences,PyCompatibility
-from six import binary_type, text_type, string_types, integer_types, BytesIO, StringIO
-from six.moves import zip
-
-if six.PY3:
-    from typing import TYPE_CHECKING
-
-    if TYPE_CHECKING:
-        from typing import IO, Any, AnyStr, Callable, Dict, Generator, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
-        from typing_extensions import Self
-        from .connection import Connection
-        from logging import Logger
-        T = TypeVar('T')
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import IO, Any, AnyStr, Callable, Dict, Generator, List, Literal, Optional, Sequence, Tuple, Type, TypeVar, Union
+    from typing_extensions import Self
+    from .connection import Connection
+    from logging import Logger
+    T = TypeVar('T')
 
 from .. import errors, os_utils
 from ..compat import as_text
@@ -126,9 +119,6 @@ file_type = tuple(
     ]
     if inspect.isclass(type_)
 )
-if six.PY2:
-    # noinspection PyUnresolvedReferences
-    file_type = file_type + (file,)
 
 
 RE_NAME_BASE = u"[0-9a-zA-Z_][\\w\\d\\$_]*"
@@ -180,6 +170,22 @@ class Cursor(object):
         self.close()
 
     #############################################
+    # decorators
+    #############################################
+    def handle_ctrl_c(func):
+        """
+        On Ctrl-C, try to cancel the query in the server
+        """
+        def wrap(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except KeyboardInterrupt:
+                self.connection.cancel()
+                self.flush_to_query_ready() # ignore errors.QueryCanceled
+                raise
+        return wrap
+
+    #############################################
     # dbapi methods
     #############################################
     # noinspection PyMethodMayBeStatic
@@ -192,6 +198,7 @@ class Cursor(object):
             self._close_prepared_statement()
         self._closed = True
 
+    @handle_ctrl_c
     def execute(self, operation, parameters=None, use_prepared_statements=None,
                 copy_stdin=None, buffer_size=DEFAULT_BUFFER_SIZE):
         # type: (str, Optional[Union[List[Any], Tuple[Any], Dict[str, Any]]], Optional[bool], Optional[Union[IO[AnyStr], List[IO[AnyStr]]]], int) -> Self
@@ -239,6 +246,7 @@ class Cursor(object):
 
         return self
 
+    @handle_ctrl_c
     def executemany(self, operation, seq_of_parameters, use_prepared_statements=None):
         # type: (str, Sequence[Union[List[Any], Tuple[Any], Dict[str, Any]]], Optional[bool]) -> None
 
@@ -306,10 +314,11 @@ class Cursor(object):
                 self._message = self.connection.read_message()
                 return row
             elif isinstance(self._message, messages.RowDescription):
-                self.description = [Column(fd) for fd in self._message.fields]
+                self.description = self._message.get_description()
                 self._deserializers = self._des.get_row_deserializers(self.description,
                                         {'unicode_error': self.unicode_error,
-                                         'session_tz': self.connection.parameters.get('timezone', 'unknown')})
+                                         'session_tz': self.connection.parameters.get('timezone', 'unknown'),
+                                         'complex_types_enabled': self.connection.complex_types_enabled,})
             elif isinstance(self._message, messages.ReadyForQuery):
                 return None
             elif isinstance(self._message, END_OF_RESULT_RESPONSES):
@@ -366,10 +375,11 @@ class Cursor(object):
             # there might be another set, read next message to find out
             self._message = self.connection.read_message()
             if isinstance(self._message, messages.RowDescription):
-                self.description = [Column(fd) for fd in self._message.fields]
+                self.description = self._message.get_description()
                 self._deserializers = self._des.get_row_deserializers(self.description,
                                         {'unicode_error': self.unicode_error,
-                                         'session_tz': self.connection.parameters.get('timezone', 'unknown')})
+                                         'session_tz': self.connection.parameters.get('timezone', 'unknown'),
+                                         'complex_types_enabled': self.connection.complex_types_enabled,})
                 self._message = self.connection.read_message()
                 if isinstance(self._message, messages.VerifyFiles):
                     self._handle_copy_local_protocol()
@@ -440,9 +450,9 @@ class Cursor(object):
 
         self.flush_to_query_ready()
 
-        if isinstance(data, binary_type):
+        if isinstance(data, bytes):
             stream = BytesIO(data)
-        elif isinstance(data, text_type):
+        elif isinstance(data, str):
             stream = StringIO(data)
         elif isinstance(data, file_type) or callable(getattr(data, 'read', None)):
             stream = data
@@ -568,7 +578,7 @@ class Cursor(object):
         if type(py_obj) in self._sql_literal_adapters and not is_copy_data:
             adapter = self._sql_literal_adapters[type(py_obj)]
             result = adapter(py_obj)
-            if not isinstance(result, (string_types, bytes)):
+            if not isinstance(result, (str, bytes)):
                 raise TypeError("Unexpected return type of {} adapter: {}, expected a string type."
                     .format(type(py_obj), type(result)))
             return as_text(result)
@@ -577,9 +587,9 @@ class Cursor(object):
             return '' if is_copy_data else 'NULL'
         elif isinstance(py_obj, bool):
             return str(py_obj)
-        elif isinstance(py_obj, (string_types, bytes)):
+        elif isinstance(py_obj, (str, bytes)):
             return self.format_quote(as_text(py_obj), is_copy_data)
-        elif isinstance(py_obj, (integer_types, float, Decimal)):
+        elif isinstance(py_obj, (int, float, Decimal)):
             return str(py_obj)
         elif isinstance(py_obj, tuple):  # tuple and namedtuple
             elements = [None] * len(py_obj)
@@ -603,8 +613,8 @@ class Cursor(object):
         operation = as_text(operation)
 
         if isinstance(parameters, dict):
-            for key, param in six.iteritems(parameters):
-                if not isinstance(key, string_types):
+            for key, param in parameters.items():
+                if not isinstance(key, str):
                     key = str(key)
                 key = as_text(key)
 
@@ -657,10 +667,11 @@ class Cursor(object):
         if isinstance(self._message, messages.ErrorResponse):
             raise errors.QueryError.from_error_response(self._message, query)
         elif isinstance(self._message, messages.RowDescription):
-            self.description = [Column(fd) for fd in self._message.fields]
+            self.description = self._message.get_description()
             self._deserializers = self._des.get_row_deserializers(self.description,
                                     {'unicode_error': self.unicode_error,
-                                     'session_tz': self.connection.parameters.get('timezone', 'unknown')})
+                                     'session_tz': self.connection.parameters.get('timezone', 'unknown'),
+                                     'complex_types_enabled': self.connection.complex_types_enabled,})
             self._message = self.connection.read_message()
             if isinstance(self._message, messages.ErrorResponse):
                 raise errors.QueryError.from_error_response(self._message, query)
@@ -850,10 +861,11 @@ class Cursor(object):
         if isinstance(self._message, messages.NoData):
             self.description = None  # response was NoData for a DDL/transaction PreparedStatement
         else:
-            self.description = [Column(fd) for fd in self._message.fields]
+            self.description = self._message.get_description()
             self._deserializers = self._des.get_row_deserializers(self.description,
                                     {'unicode_error': self.unicode_error,
-                                     'session_tz': self.connection.parameters.get('timezone', 'unknown')})
+                                     'session_tz': self.connection.parameters.get('timezone', 'unknown'),
+                                     'complex_types_enabled': self.connection.complex_types_enabled,})
 
         # Read expected message: CommandDescription
         self._message = self.connection.read_expected_message(messages.CommandDescription, self._error_handler)
@@ -920,3 +932,4 @@ class Cursor(object):
         self.connection.write(messages.Flush())
         self._message = self.connection.read_expected_message(messages.CloseComplete)
         self.connection.write(messages.Sync())
+
