@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,17 +47,11 @@ from collections import deque, namedtuple
 import random
 
 # noinspection PyCompatibility,PyUnresolvedReferences
-from six import raise_from, string_types, integer_types, PY2
-
-if PY2:
-    from urlparse import urlparse, parse_qs
-else:
-    from urllib.parse import urlparse, parse_qs
-
-    from typing import TYPE_CHECKING
-    if TYPE_CHECKING:
-        from typing import Any, Dict, Literal, Optional, Type, Union
-        from typing_extensions import Self
+from urllib.parse import urlparse, parse_qs
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Any, Dict, Literal, Optional, Type, Union
+    from typing_extensions import Self
 
 import vertica_python
 from .. import errors
@@ -77,6 +71,7 @@ DEFAULT_KRB_SERVICE_NAME = 'vertica'
 DEFAULT_LOG_LEVEL = logging.WARNING
 DEFAULT_LOG_PATH = 'vertica_python.log'
 DEFAULT_BINARY_TRANSFER = False
+DEFAULT_REQUEST_COMPLEX_TYPES = True
 try:
     DEFAULT_USER = getpass.getuser()
 except Exception as e:
@@ -120,7 +115,8 @@ def parse_dsn(dsn):
         elif key == 'backup_server_node':
             continue
         elif key in ('connection_load_balance', 'use_prepared_statements',
-                     'disable_copy_local', 'ssl', 'autocommit', 'binary_transfer'):
+                     'disable_copy_local', 'ssl', 'autocommit',
+                     'binary_transfer', 'request_complex_types'):
             lower = value.lower()
             if lower in ('true', 'on', '1'):
                 result[key] = True
@@ -163,7 +159,7 @@ class _AddressList(object):
         # a host name or IP address string (using default port) or
         # a (host, port) tuple
         for node in backup_nodes:
-            if isinstance(node, string_types):
+            if isinstance(node, str):
                 self._append(node, DEFAULT_PORT)
             elif isinstance(node, tuple) and len(node) == 2:
                 self._append(node[0], node[1])
@@ -175,16 +171,16 @@ class _AddressList(object):
         self._logger.debug('Address list: {0}'.format(list(self.address_deque)))
 
     def _append(self, host, port):
-        if not isinstance(host, string_types):
+        if not isinstance(host, str):
             err_msg = 'Host must be a string: invalid value: {0}'.format(host)
             self._logger.error(err_msg)
             raise TypeError(err_msg)
 
-        if not isinstance(port, (string_types, integer_types)):
+        if not isinstance(port, (str, int)):
             err_msg = 'Port must be an integer or a string: invalid value: {0}'.format(port)
             self._logger.error(err_msg)
             raise TypeError(err_msg)
-        elif isinstance(port, string_types):
+        elif isinstance(port, str):
             try:
                 port = int(port)
             except ValueError as e:
@@ -322,15 +318,19 @@ class Connection(object):
         self._logger.debug('Data binary transfer is {}'.format(
                      'enabled' if self.options['binary_transfer'] else 'disabled'))
 
+        # knob for requesting complex types metadata
+        self.options.setdefault('request_complex_types', DEFAULT_REQUEST_COMPLEX_TYPES)
+        self._logger.debug('Complex types metadata is {}'.format(
+                     'requested' if self.options['request_complex_types'] else 'not requested'))
+
         self._logger.info('Connecting as user "{}" to database "{}" on host "{}" with port {}'.format(
                      self.options['user'], self.options['database'],
                      self.options['host'], self.options['port']))
         self.startup_connection()
 
-        # Initially, for a new session, autocommit is off
-        if self.options['autocommit']:
-            self.autocommit = True
-
+        # Complex types metadata is returned since protocol version 3.12
+        self.complex_types_enabled = self.parameters['protocol_version'] >= (3 << 16 | 12) and \
+                                     self.parameters.get('request_complex_types', 'off') == 'on'
         self._logger.info('Connection is ready')
 
     #############################################
@@ -385,6 +385,7 @@ class Connection(object):
     @property
     def autocommit(self):
         """Read the connection's AUTOCOMMIT setting from cache"""
+        # For a new session, autocommit is off by default
         return self.parameters.get('auto_commit', 'off') == 'on'
 
     @autocommit.setter
@@ -446,21 +447,27 @@ class Connection(object):
         if self.socket:
             return self.socket
 
-        # the initial establishment of the client connection
+        # the initial establishment of the socket connection
         raw_socket = self.establish_socket_connection(self.address_list)
 
-        # enable load balancing
-        load_balance_options = self.options.get('connection_load_balance')
-        self._logger.debug('Connection load balance option is {0}'.format(
-                     'enabled' if load_balance_options else 'disabled'))
-        if load_balance_options:
-            raw_socket = self.balance_load(raw_socket)
+        # modify the socket connection based on client connection options
+        try:
+            # enable load balancing
+            load_balance_options = self.options.get('connection_load_balance')
+            self._logger.debug('Connection load balance option is {0}'.format(
+                         'enabled' if load_balance_options else 'disabled'))
+            if load_balance_options:
+                raw_socket = self.balance_load(raw_socket)
 
-        # enable SSL
-        ssl_options = self.options.get('ssl')
-        self._logger.debug('SSL option is {0}'.format('enabled' if ssl_options else 'disabled'))
-        if ssl_options:
-            raw_socket = self.enable_ssl(raw_socket, ssl_options)
+            # enable SSL
+            ssl_options = self.options.get('ssl')
+            self._logger.debug('SSL option is {0}'.format('enabled' if ssl_options else 'disabled'))
+            if ssl_options:
+                raw_socket = self.enable_ssl(raw_socket, ssl_options)
+        except:
+            self._logger.debug('Close the socket')
+            raw_socket.close()
+            raise
 
         self.socket = raw_socket
         return self.socket
@@ -534,9 +541,9 @@ class Connection(object):
                 else:
                     raw_socket = ssl.wrap_socket(raw_socket)
             except ssl.CertificateError as e:
-                raise_from(errors.ConnectionError(str(e)), e)
+                raise errors.ConnectionError(str(e))
             except ssl.SSLError as e:
-                raise_from(errors.ConnectionError(str(e)), e)
+                raise errors.ConnectionError(str(e))
         else:
             err_msg = "SSL requested but not supported by server"
             self._logger.error(err_msg)
@@ -604,11 +611,12 @@ class Connection(object):
             self.close_socket()
             self._logger.error(str(e))
             if isinstance(e, IOError):
-                raise_from(errors.ConnectionError(str(e)), e)
+                raise errors.ConnectionError(str(e))
             else:
                 raise
 
     def close_socket(self):
+        self._logger.debug("Close connection's socket")
         try:
             if self.socket is not None:
                 self._socket().close()
@@ -675,6 +683,8 @@ class Connection(object):
                     else:
                         # The rest of the message is read later with write_to_disk()
                         message = messages.WriteFile(filename, file_length)
+                elif type_ == messages.RowDescription.message_id:
+                    message = BackendMessage.from_type(type_, self.read_bytes(size - 4), complex_types_enabled=self.complex_types_enabled)
                 else:
                     message = BackendMessage.from_type(type_, self.read_bytes(size - 4))
                 self._logger.debug('<= %s', message)
@@ -686,7 +696,7 @@ class Connection(object):
                 self.close_socket()
                 # noinspection PyTypeChecker
                 self._logger.error(e)
-                raise_from(errors.ConnectionError(str(e)), e)
+                raise errors.ConnectionError(str(e))
             if not self.is_asynchronous_message(message):
                 break
         return message
@@ -805,9 +815,11 @@ class Connection(object):
         session_label = self.options['session_label']
         os_user_name = DEFAULT_USER if DEFAULT_USER else ''
         password = self.options['password']
+        autocommit = self.options['autocommit']
         binary_transfer = self.options['binary_transfer']
+        request_complex_types = self.options['request_complex_types']
 
-        self.write(messages.Startup(user, database, session_label, os_user_name, binary_transfer))
+        self.write(messages.Startup(user, database, session_label, os_user_name, autocommit, binary_transfer, request_complex_types))
 
         while True:
             message = self.read_message()

@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,11 +41,7 @@ import logging
 import unittest
 import inspect
 import getpass
-import six
-if six.PY2:
-    from ConfigParser import ConfigParser
-elif six.PY3:
-    from configparser import ConfigParser
+from configparser import ConfigParser
 
 from ...compat import as_text, as_str, as_bytes
 from ...vertica.log import VerticaLogging
@@ -148,7 +144,7 @@ class VerticaPythonTestCase(unittest.TestCase):
         self.assertEqual(first=first_bytes, second=second_bytes, msg=msg)
 
     def assertResultEqual(self, value, result, msg=None):
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             self.assertTextEqual(first=value, second=result, msg=msg)
         else:
             self.assertEqual(first=value, second=result, msg=msg)

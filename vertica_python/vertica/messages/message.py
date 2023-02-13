@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -96,10 +96,10 @@ class BackendMessage(Message):
     _message_id_map = {}
 
     @classmethod
-    def from_type(cls, type_, data):
+    def from_type(cls, type_, data, **kwargs):
         klass = cls._message_id_map.get(type_)
         if klass is not None:
-            return klass(data)
+            return klass(data, **kwargs)
         else:
             from .backend_messages import Unknown
             return Unknown(type_, data)

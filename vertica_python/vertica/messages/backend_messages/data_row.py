@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,8 +36,6 @@
 from __future__ import print_function, division, absolute_import
 
 from struct import unpack_from
-
-from six.moves import range
 
 from ..message import BackendMessage
 
