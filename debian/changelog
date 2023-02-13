@@ -1,3 +1,10 @@
+python-vertica (1.3.0-1) unstable; urgency=medium
+
+  * New upstream version 1.3.0
+  * Update Standards-Version
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Mon, 13 Feb 2023 15:08:54 +0100
+
 python-vertica (1.1.1-1) unstable; urgency=medium
 
   * Improve CI keeping only relevant bits
