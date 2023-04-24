@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Open Text.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +45,7 @@ opts = ReqOpts(None, 'git')
 # version should use the format 'x.x.x' (instead of 'vx.x.x')
 setup(
     name='vertica-python',
-    version='1.3.1',
+    version='1.3.2',
     description='Official native Python client for the Vertica database.',
     long_description="vertica-python is the official Vertica database client for the Python programming language. Please check the [project homepage](https://github.com/vertica/vertica-python) for the details.",
     long_description_content_type='text/markdown',
