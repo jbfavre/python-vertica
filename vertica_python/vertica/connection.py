@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023 Micro Focus or one of its affiliates.
+# Copyright (c) 2018-2023 Open Text.
 # Copyright (c) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,7 +77,7 @@ try:
     DEFAULT_USER = getpass.getuser()
 except Exception as e:
     DEFAULT_USER = None
-    print("WARN: Cannot get the login user name: {}".format(str(e)))
+    warnings.warn(f"Cannot get the login user name: {str(e)}")
 
 
 def connect(**kwargs):
