@@ -488,6 +488,39 @@ class CursorTestCase(VerticaPythonIntegrationTestCase):
             else:
                 self.assertListOfListsEqual(res, [[b'1', b'aa'], [b'2', b'bb']])
 
+    def test_custom_sqldata_converter(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.register_sqldata_converter(5, lambda val, ctx: 'yes' if val == b't' else 'no')
+            cur.execute("SELECT 't'::BOOL, NULL::BOOL, 'f'::BOOL")
+            self.assertListOfListsEqual(cur.fetchall(), [['yes', None, 'no']])
+            cur.unregister_sqldata_converter(5)
+            cur.execute("SELECT 't'::BOOL, NULL::BOOL, 'f'::BOOL")
+            self.assertListOfListsEqual(cur.fetchall(), [[True, None, False]])
+
+        self._conn_info['binary_transfer'] = True
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT 't'::BOOL, NULL::BOOL, 'f'::BOOL")
+            self.assertListOfListsEqual(cur.fetchall(), [[True, None, False]])
+            cur.register_sqldata_converter(5, lambda val, ctx: 'on' if val == b'\x01' else 'off')
+            cur.execute("SELECT 't'::BOOL, NULL::BOOL, 'f'::BOOL")
+            self.assertListOfListsEqual(cur.fetchall(), [['on', None, 'off']])
+            cur.unregister_sqldata_converter(5)
+            cur.execute("SELECT 't'::BOOL, NULL::BOOL, 'f'::BOOL")
+            self.assertListOfListsEqual(cur.fetchall(), [[True, None, False]])
+
+    def test_custom_sqldata_converter_errors(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+
+            with self.assertRaises(TypeError): # first arg is not an integer
+                cur.register_sqldata_converter("string", lambda val, ctx: val)
+
+            with self.assertRaises(TypeError): # second arg is not a function
+                cur.register_sqldata_converter(6, "string")
+
+
 exec(CursorTestCase.createPrepStmtClass())
 
 
@@ -692,6 +725,28 @@ class SimpleQueryTestCase(VerticaPythonIntegrationTestCase):
             # second statement results in a query error
             with self.assertRaises(errors.MissingColumn):
                 cur.nextset()
+
+    # test for #526
+    def test_nextset_with_error_2(self):
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute("CREATE TABLE {0} (a INT, b INT)".format(self._table))
+            # insert data
+            cur.execute("INSERT INTO {0} (a, b) VALUES (8, 2)".format(self._table))
+            cur.execute("INSERT INTO {0} (a, b) VALUES (2, 0)".format(self._table))
+            conn.commit()
+
+            cur.execute("SELECT 1; SELECT a/b FROM {}; SELECT 2".format(self._table))
+            # verify data from first query
+            res1 = cur.fetchall()
+            self.assertListOfListsEqual(res1, [[1]])
+            self.assertIsNone(cur.fetchone())
+
+            self.assertTrue(cur.nextset())
+            self.assertEqual(cur.fetchone()[0], Decimal('4'))
+            # Division by zero error at the second row, should be skipped by next nextset()
+            self.assertFalse(cur.nextset())
+            self.assertIsNone(cur.fetchone())
 
     def test_qmark_paramstyle(self):
         with self._connect() as conn:
