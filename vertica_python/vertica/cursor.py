@@ -43,6 +43,7 @@ import os
 import re
 import sys
 import traceback
+import warnings
 from decimal import Decimal
 from io import IOBase, BytesIO, StringIO
 from math import isnan
@@ -152,6 +153,7 @@ class Cursor(object):
         self.error = None
         self._sql_literal_adapters = {}
         self._disable_sqldata_converter = False
+        self._sqldata_converters = {}
         self._des = Deserializer()
 
         #
@@ -303,13 +305,14 @@ class Cursor(object):
                 variables = ",".join([variable.strip().strip('"') for variable in variables.split(",")])
 
                 values = as_text(m.group('values'))
-                values = ",".join([value.strip().strip('"') for value in values.split(",")])
+                values = "|".join([value.strip().strip('"') for value in values.split(",")])
                 seq_of_values = [self.format_operation_with_parameters(values, parameters, is_copy_data=True)
                                  for parameters in seq_of_parameters]
                 data = "\n".join(seq_of_values)
 
                 copy_statement = (
-                    u"COPY {0} ({1}) FROM STDIN DELIMITER ',' ENCLOSED BY '\"' "
+                    u"COPY {0} ({1}) FROM STDIN "
+                    u"ENCLOSED BY '''' "  # '/r' will have trouble if ENCLOSED BY is not set
                     u"ENFORCELENGTH ABORT ON ERROR{2}").format(target, variables,
                     " NO COMMIT" if not self.connection.autocommit else '')
 
@@ -332,10 +335,7 @@ class Cursor(object):
                 return row
             elif isinstance(self._message, messages.RowDescription):
                 self.description = self._message.get_description()
-                self._deserializers = self._des.get_row_deserializers(self.description,
-                                        {'unicode_error': self.unicode_error,
-                                         'session_tz': self.connection.parameters.get('timezone', 'unknown'),
-                                         'complex_types_enabled': self.connection.complex_types_enabled,})
+                self._deserializers = self.get_deserializers()
             elif isinstance(self._message, messages.ReadyForQuery):
                 return None
             elif isinstance(self._message, END_OF_RESULT_RESPONSES):
@@ -393,10 +393,7 @@ class Cursor(object):
             self._message = self.connection.read_message()
             if isinstance(self._message, messages.RowDescription):
                 self.description = self._message.get_description()
-                self._deserializers = self._des.get_row_deserializers(self.description,
-                                        {'unicode_error': self.unicode_error,
-                                         'session_tz': self.connection.parameters.get('timezone', 'unknown'),
-                                         'complex_types_enabled': self.connection.complex_types_enabled,})
+                self._deserializers = self.get_deserializers()
                 self._message = self.connection.read_message()
                 if isinstance(self._message, messages.VerifyFiles):
                     self._handle_copy_local_protocol()
@@ -533,9 +530,39 @@ class Cursor(object):
         """
         self._disable_sqldata_converter = bool(value)
 
+    def register_sqldata_converter(self, oid, converter_func):
+        if not isinstance(oid, int):
+            raise TypeError(f"sqldata converters should be registered on oid integer, got {oid} instead.")
+
+        if not callable(converter_func):
+            raise TypeError("Cannot register this sqldata converter. The converter is not callable.")
+
+        # For an oid, transfer format (BINARY/TEXT) is fixed in a connection
+        self._sqldata_converters[oid] = converter_func
+        # For prepared statements, need to reset self._deserializers
+        if self.description: self._deserializers = self.get_deserializers()
+
+    def unregister_sqldata_converter(self, oid):
+        if oid in self._sqldata_converters:
+            del self._sqldata_converters[oid]
+            # For prepared statements, need to reset self._deserializers
+            if self.description: self._deserializers = self.get_deserializers()
+        else:
+            no_such_oid = f'Nothing was unregistered (oid={oid})'
+            warnings.warn(no_such_oid)
+
+
     #############################################
     # internal
     #############################################
+    def get_deserializers(self):
+        return self._des.get_row_deserializers(
+                  self.description, self._sqldata_converters,
+                  {'unicode_error': self.unicode_error,
+                   'session_tz': self.connection.parameters.get('timezone', 'unknown'),
+                   'complex_types_enabled': self.connection.complex_types_enabled,}
+               )
+
     def flush_to_query_ready(self):
         # if the last message isn't empty or ReadyForQuery, read all remaining messages
         if self._message is None \
@@ -561,7 +588,8 @@ class Cursor(object):
 
         while True:
             message = self.connection.read_message()
-            if isinstance(message, END_OF_RESULT_RESPONSES):
+            if (isinstance(message, messages.ReadyForQuery) or
+                isinstance(message, END_OF_RESULT_RESPONSES)):
                 self._message = message
                 break
 
@@ -590,7 +618,7 @@ class Cursor(object):
         return [convert(value)
                 for convert, value in zip(self._deserializers, row_data.values)]
 
-    def object_to_string(self, py_obj, is_copy_data):
+    def object_to_string(self, py_obj, is_copy_data, is_collection=False):
         """Return the SQL representation of the object as a string"""
         if type(py_obj) in self._sql_literal_adapters and not is_copy_data:
             adapter = self._sql_literal_adapters[type(py_obj)]
@@ -601,15 +629,15 @@ class Cursor(object):
             return as_text(result)
 
         if isinstance(py_obj, type(None)):
-            return '' if is_copy_data else 'NULL'
+            return '' if is_copy_data and not is_collection else 'NULL'
         elif isinstance(py_obj, bool):
             return str(py_obj)
         elif isinstance(py_obj, (str, bytes)):
-            return self.format_quote(as_text(py_obj), is_copy_data)
+            return self.format_quote(as_text(py_obj), is_copy_data, is_collection)
         elif isinstance(py_obj, (int, Decimal)):
             return str(py_obj)
         elif isinstance(py_obj, float):
-            if py_obj in (float('Inf'), float('-Inf')) or isnan(py_obj):
+            if not is_copy_data and py_obj in (float('Inf'), float('-Inf')) or isnan(py_obj):
                 return f"'{str(py_obj)}'::FLOAT"
             return str(py_obj)
         elif isinstance(py_obj, tuple):  # tuple and namedtuple
@@ -617,20 +645,31 @@ class Cursor(object):
             for i in range(len(py_obj)):
                 elements[i] = self.object_to_string(py_obj[i], is_copy_data)
             return "(" + ",".join(elements) + ")"
-        elif isinstance(py_obj, list) and not is_copy_data:
+        elif isinstance(py_obj, list):
             elements = [None] * len(py_obj)
-            for i in range(len(py_obj)):
-                elements[i] = self.object_to_string(py_obj[i], False)
-            # Use the ARRAY keyword to construct an array value
-            return f'ARRAY[{",".join(elements)}]'
-        elif isinstance(py_obj, set) and not is_copy_data:
+            if is_copy_data:
+                for i in range(len(py_obj)):
+                    elements[i] = self.object_to_string(py_obj[i], True, True)
+                return f'[{",".join(elements)}]'
+            else:
+                for i in range(len(py_obj)):
+                    elements[i] = self.object_to_string(py_obj[i], False)
+                # Use the ARRAY keyword to construct an array value
+                return f'ARRAY[{",".join(elements)}]'
+        elif isinstance(py_obj, set):
             elements = [None] * len(py_obj)
             i = 0
-            for o in py_obj:
-                elements[i] = self.object_to_string(o, False)
-                i += 1
-            # Use the SET keyword to construct a set value
-            return f'SET[{",".join(elements)}]'
+            if is_copy_data:
+                for o in py_obj:
+                    elements[i] = self.object_to_string(o, True, True)
+                    i += 1
+                return f'[{",".join(elements)}]'
+            else:
+                for o in py_obj:
+                    elements[i] = self.object_to_string(o, False)
+                    i += 1
+                # Use the SET keyword to construct a set value
+                return f'SET[{",".join(elements)}]'
         elif isinstance(py_obj, dict) and not is_copy_data:
             elements = [None] * len(py_obj)
             i = 0
@@ -640,7 +679,7 @@ class Cursor(object):
             # Use the ROW keyword to construct a row value
             return f'ROW({",".join(elements)})'
         elif isinstance(py_obj, (datetime.datetime, datetime.date, datetime.time, UUID)):
-            return self.format_quote(as_text(str(py_obj)), is_copy_data)
+            return self.format_quote(as_text(str(py_obj)), is_copy_data, is_collection)
         else:
             if is_copy_data:
                 return str(py_obj)
@@ -686,13 +725,19 @@ class Cursor(object):
 
         return operation
 
-    def format_quote(self, param, is_copy_data):
-        if is_copy_data:
+    def format_quote(self, param, is_copy_data, is_collection):
+        if is_collection: # COPY COLLECTIONENCLOSE
             s = list(param)
             for i, c in enumerate(param):
-                if c in u'()[]{}?"*+-|^$\\.&~# \t\n\r\v\f':
+                if c in '\\\n\"':
                     s[i] = "\\" + c
             return u'"{0}"'.format(u"".join(s))
+        elif is_copy_data: # COPY ENCLOSED BY
+            s = list(param)
+            for i, c in enumerate(param):
+                if c in '\\|\n\'':
+                    s[i] = "\\" + c
+            return u"'{0}'".format(u"".join(s))
         else:
             return u"'{0}'".format(param.replace(u"'", u"''"))
 
@@ -717,10 +762,7 @@ class Cursor(object):
             raise errors.QueryError.from_error_response(self._message, query)
         elif isinstance(self._message, messages.RowDescription):
             self.description = self._message.get_description()
-            self._deserializers = self._des.get_row_deserializers(self.description,
-                                    {'unicode_error': self.unicode_error,
-                                     'session_tz': self.connection.parameters.get('timezone', 'unknown'),
-                                     'complex_types_enabled': self.connection.complex_types_enabled,})
+            self._deserializers = self.get_deserializers()
             self._message = self.connection.read_message()
             if isinstance(self._message, messages.ErrorResponse):
                 raise errors.QueryError.from_error_response(self._message, query)
@@ -759,7 +801,8 @@ class Cursor(object):
             # Check that the input files are readable
             self.valid_read_file_path = self._check_copy_local_files(input_files)
 
-            self.connection.write(messages.VerifiedFiles(self.valid_read_file_path))
+            self.connection.write(messages.VerifiedFiles(self.valid_read_file_path,
+                                  self.connection.parameters.get('protocol_version', 0)))
         except Exception as e:
             tb = sys.exc_info()[2]
             stk = traceback.extract_tb(tb, 1)
@@ -911,10 +954,7 @@ class Cursor(object):
             self.description = None  # response was NoData for a DDL/transaction PreparedStatement
         else:
             self.description = self._message.get_description()
-            self._deserializers = self._des.get_row_deserializers(self.description,
-                                    {'unicode_error': self.unicode_error,
-                                     'session_tz': self.connection.parameters.get('timezone', 'unknown'),
-                                     'complex_types_enabled': self.connection.complex_types_enabled,})
+            self._deserializers = self.get_deserializers()
 
         # Read expected message: CommandDescription
         self._message = self.connection.read_expected_message(messages.CommandDescription, self._error_handler)
